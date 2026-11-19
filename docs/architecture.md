@@ -106,7 +106,7 @@ Design notes:
 
 | Layer | Protection |
 |---|---|
-| **Accounts** | Supabase Auth with public sign-up disabled and exactly two roles. Roles live in `app_user_roles` with **no** client INSERT/UPDATE policy, so users can't promote themselves. Disabled accounts lose their role and are banned in Auth. |
+| **Accounts** | Supabase Auth with public sign-up disabled and exactly two roles. Roles live in `app_user_roles` with **no** client INSERT/UPDATE policy, so users can't promote themselves. A trigger (migration 005) gives every new Auth user the `admin` role, because only the project owner can create users; scanner accounts created in the app are switched to `scanner` immediately. Disabled accounts lose their role and are banned in Auth. |
 | **RLS** | Enabled on every table (`app_user_roles`, `events`, `attendees`, `attendance`, `import_logs`, `attendance_corrections`, `active_event_state`). Anonymous users have no table privileges. Scanner users **can't read** attendees or attendance; they see the active event only through `get_active_event()` (id, name, date, venue). |
 | **Attendance writes** | Only through functions. `record_qr_check_in` runs only as `service_role` (called by the Edge Function after verifying the user). `admin_mark_present` / `admin_undo_check_in` check `is_admin()` and write an audit row to `attendance_corrections`. Direct `INSERT/UPDATE/DELETE` on `attendance` is revoked from browser roles, and rows are immutable. |
 | **Database functions** | Every privileged function is `SECURITY DEFINER` with `SET search_path = ''`, schema-qualified names, its own role check, and `EXECUTE` revoked from `PUBLIC`/`anon`. |

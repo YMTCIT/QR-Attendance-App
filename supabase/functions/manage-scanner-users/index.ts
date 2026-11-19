@@ -50,7 +50,11 @@ async function createScanner(
   }
 
   const userId = created.data.user.id
-  const { error } = await admin.from('app_user_roles').insert({ user_id: userId, role: 'scanner' })
+  // A database trigger (migration 005) has already given the new user the
+  // default 'admin' role; overwrite it so app-created scanners stay restricted.
+  const { error } = await admin
+    .from('app_user_roles')
+    .upsert({ user_id: userId, role: 'scanner', disabled_at: null }, { onConflict: 'user_id' })
   if (error) {
     // Roll back the auth user so we never leave an account without a role.
     await admin.auth.admin.deleteUser(userId)

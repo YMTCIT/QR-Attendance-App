@@ -59,10 +59,14 @@ export async function createTestDb(): Promise<PGlite> {
       ('${SCANNER_ID}', 'scanner@example.test'),
       ('${DISABLED_SCANNER_ID}', 'disabled@example.test'),
       ('${NO_ROLE_ID}', 'nobody@example.test');
+    -- Migration 005 made every new auth user an admin; set the fixture roles.
     insert into public.app_user_roles (user_id, role, disabled_at) values
       ('${ADMIN_ID}', 'admin', null),
       ('${SCANNER_ID}', 'scanner', null),
-      ('${DISABLED_SCANNER_ID}', 'scanner', now());
+      ('${DISABLED_SCANNER_ID}', 'scanner', now())
+    on conflict (user_id) do update set role = excluded.role, disabled_at = excluded.disabled_at;
+    -- Keep one account without a role to test defence in depth.
+    delete from public.app_user_roles where user_id = '${NO_ROLE_ID}';
   `)
   return db
 }

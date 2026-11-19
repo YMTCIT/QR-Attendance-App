@@ -244,6 +244,19 @@ describe('row level security', () => {
     ).rejects.toThrow(/forbidden/)
   })
 
+  it('gives every newly created auth user the admin role, without overwriting an existing role', async () => {
+    const NEW_ID = '00000000-0000-0000-0000-0000000000ee'
+    await db.query(`insert into auth.users (id, email) values ($1, 'new@example.test')`, [NEW_ID])
+    const r = await as(db, { userId: NEW_ID }, (tx) => tx.query<{ role: string | null }>('select public.app_role() as role'))
+    expect(r.rows[0].role).toBe('admin')
+
+    // App-created scanners are switched to 'scanner' right after creation and stay that way.
+    await db.query(`update public.app_user_roles set role = 'scanner' where user_id = $1`, [NEW_ID])
+    const s = await as(db, { userId: NEW_ID }, (tx) => tx.query<{ role: string | null }>('select public.app_role() as role'))
+    expect(s.rows[0].role).toBe('scanner')
+    await db.query(`delete from auth.users where id = $1`, [NEW_ID])
+  })
+
   it('gives anonymous visitors no table access at all', async () => {
     for (const table of ['attendees', 'attendance', 'events', 'app_user_roles', 'active_event_state']) {
       await expect(as(db, 'anon', (tx) => tx.query(`select * from public.${table}`))).rejects.toThrow(
