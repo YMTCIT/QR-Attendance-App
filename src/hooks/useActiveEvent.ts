@@ -21,26 +21,34 @@ export function useActiveEvent() {
   const [lastChecked, setLastChecked] = useState<Date | null>(null)
   const inFlight = useRef<Promise<void> | null>(null)
   const mounted = useRef(true)
+  const retryTimer = useRef<number | undefined>(undefined)
 
   /** Fetch the active event; concurrent calls share one request. */
   const load = useCallback((): Promise<void> => {
-    if (inFlight.current) return inFlight.current
-    const request = fetchActiveEvent()
-      .then((next) => {
-        if (!mounted.current) return
-        setEvent(next)
-        setError(null)
-        setLastChecked(new Date())
-      })
-      .catch((e: unknown) => {
-        if (mounted.current) setError(e instanceof Error ? e.message : 'Could not load the active event.')
-      })
-      .finally(() => {
-        inFlight.current = null
-        if (mounted.current) setLoading(false)
-      })
-    inFlight.current = request
-    return request
+    const run = (): Promise<void> => {
+      if (inFlight.current) return inFlight.current
+      window.clearTimeout(retryTimer.current)
+      const request = fetchActiveEvent()
+        .then((next) => {
+          if (!mounted.current) return
+          setEvent(next)
+          setError(null)
+          setLastChecked(new Date())
+        })
+        .catch((e: unknown) => {
+          if (!mounted.current) return
+          setError(e instanceof Error ? e.message : 'Could not load the active event.')
+          // Usually Wi-Fi reconnecting after the screen was off: try again soon.
+          retryTimer.current = window.setTimeout(() => void run(), 5_000)
+        })
+        .finally(() => {
+          inFlight.current = null
+          if (mounted.current) setLoading(false)
+        })
+      inFlight.current = request
+      return request
+    }
+    return run()
   }, [])
 
   useEffect(() => {
@@ -75,6 +83,7 @@ export function useActiveEvent() {
     return () => {
       mounted.current = false
       window.clearTimeout(initial)
+      window.clearTimeout(retryTimer.current)
       window.clearInterval(poll)
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('online', trigger)

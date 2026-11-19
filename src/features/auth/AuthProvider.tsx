@@ -1,8 +1,52 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from '../../lib/supabase'
+import { readStoredSession, supabase } from '../../lib/supabase'
 import type { AppRole } from '../../types/database'
 import { AuthContext, type AuthState } from './context'
+
+/**
+ * Staying signed in
+ * -----------------
+ * A login is kept on this device until the user taps Log out, or until
+ * Supabase rejects it for good (e.g. the account was disabled), which Supabase
+ * reports as a SIGNED_OUT event. Network problems (Wi-Fi still reconnecting
+ * after the tablet wakes up, a short outage) never sign anyone out: the saved
+ * login and the last known role are used until the server can be reached
+ * again. Roles only decide which pages are shown; the database and Edge
+ * Functions still check every request.
+ */
+
+const ROLE_CACHE_PREFIX = 'cit-qr:role:'
+const ROLE_RETRY_MS = 5_000
+
+function readCachedRole(uid: string): AppRole | null {
+  try {
+    const value = localStorage.getItem(ROLE_CACHE_PREFIX + uid)
+    return value === 'admin' || value === 'scanner' ? value : null
+  } catch {
+    return null
+  }
+}
+
+function writeCachedRole(uid: string, role: AppRole | null): void {
+  try {
+    if (role) localStorage.setItem(ROLE_CACHE_PREFIX + uid, role)
+    else localStorage.removeItem(ROLE_CACHE_PREFIX + uid)
+  } catch {
+    // storage unavailable
+  }
+}
+
+function clearCachedRoles(): void {
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i)
+      if (key?.startsWith(ROLE_CACHE_PREFIX)) localStorage.removeItem(key)
+    }
+  } catch {
+    // storage unavailable
+  }
+}
 
 function friendlyAuthError(message: string): string {
   if (/invalid login credentials/i.test(message)) return 'Incorrect email or password.'
@@ -41,12 +85,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false
     supabase.auth.getSession().then(({ data }) => {
       if (cancelled) return
-      setSession(data.session)
+      // No session but the login is still saved: Supabase could not refresh
+      // the token while offline. Stay signed in with the saved login.
+      setSession(data.session ?? readStoredSession())
       setSessionLoaded(true)
     })
     // Do not call other Supabase APIs synchronously inside this callback.
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
-      setSession(next)
+    const { data: sub } = supabase.auth.onAuthStateChange((event, next) => {
+      if (event === 'SIGNED_OUT') {
+        // Log out, or Supabase rejected the login for good.
+        clearCachedRoles()
+        setSession(null)
+      } else {
+        setSession(next ?? readStoredSession())
+      }
       setSessionLoaded(true)
     })
     return () => {
@@ -63,20 +115,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRoleForUser(uid)
   }, [])
 
+  /**
+   * Load the role. If the server can't be reached, use the role remembered on
+   * this device (if any) and keep retrying until it can.
+   */
   useEffect(() => {
     if (!userId) return
     let cancelled = false
-    void fetchRole(userId).then((result) => {
-      if (!cancelled) applyRole(userId, result)
-    })
+    let retry: number | undefined
+    const attempt = async () => {
+      const result = await fetchRole(userId)
+      if (cancelled) return
+      if (result.error) {
+        const cached = readCachedRole(userId)
+        applyRole(userId, cached ? { role: cached, error: null } : result)
+        retry = window.setTimeout(() => void attempt(), ROLE_RETRY_MS)
+        return
+      }
+      writeCachedRole(userId, result.role)
+      applyRole(userId, result)
+    }
+    void attempt()
     return () => {
       cancelled = true
+      window.clearTimeout(retry)
     }
   }, [userId, applyRole])
 
   const loadRole = useCallback(
     async (uid: string) => {
-      applyRole(uid, await fetchRole(uid))
+      const result = await fetchRole(uid)
+      if (result.error) {
+        const cached = readCachedRole(uid)
+        applyRole(uid, cached ? { role: cached, error: null } : result)
+        return
+      }
+      writeCachedRole(uid, result.role)
+      applyRole(uid, result)
     },
     [applyRole],
   )
@@ -86,8 +161,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw new Error(friendlyAuthError(error.message))
   }, [])
 
+  /** The ONLY way the app itself signs a user out (the Log out button). */
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut()
+    // scope 'local': forget the login on this device even if the server can't
+    // be reached right now.
+    await supabase.auth.signOut({ scope: 'local' })
+    clearCachedRoles()
+    setSession(null)
     setRole(null)
     setRoleForUser(null)
   }, [])

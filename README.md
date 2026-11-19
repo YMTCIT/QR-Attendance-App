@@ -233,6 +233,7 @@ Defaults live in `src/config.ts`. Override any of them with Vercel environment v
 | `git push` says `Repository not found` | Check the repo exists at that exact URL in your browser. If it does, Git is signed in as a different account: remove the `git:https://github.com` entries in **Windows Credential Manager** and push again. |
 | `git push` says `Password authentication is not supported` | Use a **personal access token** as the password: GitHub → Settings → Developer settings → Personal access tokens → Generate (scope `repo`). For an organization with SSO, also authorize the token for it. |
 | Changed a Vercel env variable but nothing changed | Redeploy. Values are built in at build time. |
+| Asked to sign in again after the tablet screen was off | Logins are kept on each device until **Log out** (which signs out only that device). If it still happens, check Supabase → **Authentication → Sessions**: "Time-box user sessions" and "Inactivity timeout" should be off (or long). |
 | Invite emails link to the wrong site | Set the Site URL ([step 2.5](#25-point-supabase-at-your-vercel-url)). |
 
 ### Camera problems

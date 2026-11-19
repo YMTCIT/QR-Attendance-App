@@ -96,11 +96,14 @@ export function useCheckInLog(eventId: number | null): CheckInLog {
     const onVisible = () => {
       if (document.visibilityState === 'visible') void sync(eventId)
     }
+    const onOnline = () => void sync(eventId)
     document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('online', onOnline)
     return () => {
       window.clearTimeout(first)
       window.clearInterval(timer)
       document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('online', onOnline)
     }
   }, [eventId, sync])
 

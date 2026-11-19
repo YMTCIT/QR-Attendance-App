@@ -1,5 +1,5 @@
 import { FunctionsHttpError } from '@supabase/supabase-js'
-import { supabase } from '../../lib/supabase'
+import { readStoredSession, supabase } from '../../lib/supabase'
 import { fetchAll, friendlyDbError } from '../../lib/fetchAll'
 import { CHECK_IN_TIMEOUT_MS } from '../../config'
 import type { ScanOutcome } from '../../types/attendance'
@@ -15,16 +15,38 @@ export async function submitCheckIn(qrCode: string): Promise<ScanOutcome> {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     return { status: 'network_error', detail: 'offline' }
   }
-  try {
-    const { data, error } = await supabase.functions.invoke('check-in', {
+  const httpStatus = (error: unknown) =>
+    error instanceof FunctionsHttpError ? (error.context as Response | undefined)?.status : undefined
+  const invoke = () =>
+    supabase.functions.invoke('check-in', {
       body: { qr_code: qrCode },
       timeout: CHECK_IN_TIMEOUT_MS,
     })
-    if (error) {
-      if (error instanceof FunctionsHttpError) {
-        const status = (error.context as Response | undefined)?.status
-        if (status === 401 || status === 403) return { status: 'unauthorized' }
+
+  try {
+    let { data, error } = await invoke()
+
+    // 401 = the login token was missing or expired, usually because the tablet
+    // just woke up and couldn't refresh it yet. Refresh and retry ONCE (safe:
+    // nothing was recorded, and check-ins are idempotent anyway). Never treat
+    // this as "signed out" unless Supabase itself ends the session.
+    if (error && httpStatus(error) === 401) {
+      const refreshed = await supabase.auth.refreshSession()
+      if (refreshed.data.session) {
+        ;({ data, error } = await invoke())
+      } else if (readStoredSession()) {
+        // Still signed in on this device; the server just can't be reached yet.
+        return { status: 'network_error', detail: 'session refresh failed' }
+      } else {
+        return { status: 'unauthorized' }
       }
+    }
+
+    if (error) {
+      // 403 = no enabled staff role (e.g. this scanner account was disabled).
+      // A 401 even after a successful refresh means the login is no longer valid.
+      const status = httpStatus(error)
+      if (status === 401 || status === 403) return { status: 'unauthorized' }
       return { status: 'network_error', detail: error.message }
     }
     const parsed = parseCheckInResponse(data)

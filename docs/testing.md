@@ -9,7 +9,7 @@ npm run check             # tsc + oxlint + vitest
 npm run check:functions   # deno check of the three Edge Functions
 ```
 
-Last recorded run: **110 tests passed across 6 files**; `tsc -b` and `oxlint --deny-warnings` also passed.
+Last recorded run: **122 tests passed across 7 files**; `tsc -b` and `oxlint --deny-warnings` also passed.
 
 | File | What it verifies |
 |---|---|
@@ -18,6 +18,7 @@ Last recorded run: **110 tests passed across 6 files**; `tsc -b` and `oxlint --d
 | `tests/scanner.test.ts` | ScanGate: synchronous lock, slow server, 500 / 800 / 1000 ms cooldowns, overlay hold, per-code re-arm, retry after network error. Camera selection picks the requested side and never the opposite one. |
 | `tests/scanner-page.test.tsx` | Renders the real ScannerPage with a fake camera: requests `facingMode: {exact: "user"}`, 8 rapid decodes produce **1** request, a success goes to the top of the Attendance Log highlighted (no overlay) and survives a slow, older log sync, other outcomes still show their overlay, camera started once and never restarted, connection errors never show success. |
 | `tests/import-registration.test.ts` | Real `.xlsx` (multi-sheet) and `.csv` parsing; mismatched, `.xls`, empty and corrupt files; formulas not executed; header auto-mapping; validation with row numbers; leading-zero warnings; 500-row batching and progress; partial-failure reporting. |
+| `tests/session-persistence.test.tsx` | Staying signed in: the saved login is kept when a refresh fails offline (including after a reload), only `SIGNED_OUT` or Log out signs out, Log out is device-only and forgets the remembered role, the remembered role is used while the role lookup fails (with retries), a 401 check-in refreshes and retries instead of signing out, login-token requests wait for the network and retry, and the saved login is found under the real client's storage key. |
 | `tests/authorization.test.ts` | Route guards; Edge Function staff auth; admin-only scanner management; webhook secret, validation and idempotency; CORS restriction; CSV formula-injection protection. |
 
 **Not covered:** true multi-connection concurrency (PGlite is single-connection). Correctness relies on PostgreSQL's unique index with `ON CONFLICT DO NOTHING`. To see it on a real database, follow `supabase/tests/manual_concurrency_check.sql` (two SQL sessions, about 2 minutes).
@@ -42,6 +43,8 @@ These need the Xiaomi Pad 7 and **have not been run yet**. Tick them during the 
 - [ ] The log is readable from where attendees stand. Consider whether showing names on a public screen is acceptable for your event.
 - [ ] Landscape and portrait both fit without scrolling, and rotating doesn't stop the camera.
 - [ ] Turning the screen off and on, or switching apps and back, recovers the camera (tap Retry Camera if not).
+- [ ] Turn the screen off for **over an hour** (longer than the login token lifetime), then on: the tablet is still signed in, and the first scan works (or shows CONNECTION ERROR once while Wi-Fi reconnects; never "sign in required").
+- [ ] Log out on one device does not sign out another device using the same account.
 - [ ] Two tablets scanning the same code at once give one new log entry and one **ALREADY CHECKED IN**, and the dashboard shows one record.
 - [ ] Wi-Fi off â†’ **CONNECTION ERROR** (never a new log entry). Wi-Fi on â†’ scanning works again.
 - [ ] The admin dashboard on another device updates live; disconnecting it shows **Not live**.
