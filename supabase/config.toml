@@ -1,0 +1,27 @@
+# Supabase CLI configuration (only the settings this project depends on;
+# everything else uses CLI defaults). Run `supabase link` to connect it to
+# your hosted project.
+project_id = "cit-qr-attendance"
+
+[auth]
+# Staff accounts are created by administrators only. Attendees never sign up.
+enable_signup = false
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173/login"]
+
+[auth.email]
+enable_signup = false
+
+# Edge Functions verify the caller INSIDE the function (Supabase Auth getUser
+# + role lookup for staff endpoints; shared secret for the Power Automate
+# webhook). Gateway JWT verification is turned off so that this works with
+# both the new publishable/secret API keys and legacy JWT keys, and so the
+# external webhook can be called without a Supabase user token.
+[functions.check-in]
+verify_jwt = false
+
+[functions.manage-scanner-users]
+verify_jwt = false
+
+[functions.register-attendee]
+verify_jwt = false
