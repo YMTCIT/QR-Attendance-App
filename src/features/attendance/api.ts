@@ -34,6 +34,30 @@ export async function submitCheckIn(qrCode: string): Promise<ScanOutcome> {
   }
 }
 
+/** One row of the scanner screen's attendance log (name + time only). */
+export interface CheckInLogEntry {
+  /** Stable identity used to merge local and server rows: name + timestamp. */
+  key: string
+  name: string
+  scanned_at: string
+}
+
+export function checkInLogKey(name: string, scannedAt: string): string {
+  const ms = Date.parse(scannedAt)
+  return `${name}|${Number.isNaN(ms) ? scannedAt : ms}`
+}
+
+/** Newest-first check-ins for the ACTIVE event (staff only; see migration 006). */
+export async function fetchCheckInLog(limit: number): Promise<{ entries: CheckInLogEntry[]; total: number }> {
+  const { data, error } = await supabase.rpc('get_recent_check_ins', { p_limit: limit })
+  if (error) throw new Error(friendlyDbError(error))
+  const rows = (data ?? []) as { name: string; scanned_at: string; total: number | string }[]
+  return {
+    entries: rows.map((r) => ({ key: checkInLogKey(r.name, r.scanned_at), name: r.name, scanned_at: r.scanned_at })),
+    total: rows.length > 0 ? Number(rows[0].total) : 0,
+  }
+}
+
 export async function fetchEventStats(eventId: number): Promise<EventStats> {
   const { data, error } = await supabase.rpc('event_stats', { p_event_id: eventId })
   if (error) throw new Error(friendlyDbError(error))

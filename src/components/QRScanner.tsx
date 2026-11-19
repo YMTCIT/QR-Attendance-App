@@ -88,11 +88,10 @@ export function QRScanner({ onDecode, processing, ready, onStatusChange, ref }: 
       </div>
 
       <div className="scanner-prompt" aria-live="polite">
-        <p className="scanner-prompt__title">Present Your QR Code</p>
-        <p className="scanner-prompt__hint">Hold your phone screen facing this tablet&apos;s front camera</p>
         <span className={`ready-indicator ${processing ? 'ready-indicator--busy' : running && ready ? 'ready-indicator--ok' : ''}`}>
           {processing ? 'Processing…' : running ? (ready ? 'Ready to Scan' : 'Please wait…') : 'Camera not ready'}
         </span>
+        <p className="scanner-prompt__hint">Hold your QR code up to the camera</p>
       </div>
     </div>
   )

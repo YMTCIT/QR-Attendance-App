@@ -382,3 +382,60 @@ describe('admin statistics and corrections', () => {
     ).rejects.toThrow(/foreign key/)
   })
 })
+
+describe('scanner attendance log (get_recent_check_ins)', () => {
+  type LogRow = { attendance_id: number; name: string; scanned_at: string; total: number }
+  const logAs = (userId: string, limit = 50) =>
+    as(db, { userId }, (tx) => tx.query<LogRow>('select * from public.get_recent_check_ins($1)', [limit]))
+
+  it('returns only name + time for the ACTIVE event, newest first, to scanner users', async () => {
+    await as(db, { userId: ADMIN_ID }, (tx) => tx.query('select public.set_active_event($1)', [eventA]))
+    // A second check-in for event A, a little later than any existing one.
+    const later = await as(db, { userId: ADMIN_ID }, async (tx) => {
+      const a = await tx.query<{ id: number }>(
+        `insert into public.attendees (qr_code, name, event_id, source) values ('LOG-001', 'Log Person', $1, 'manual') returning id`,
+        [eventA],
+      )
+      return a.rows[0].id
+    })
+    await db.query(
+      `insert into public.attendance (event_id, attendee_id, check_in_method, scanned_at)
+       values ($1, $2, 'manual', now() + interval '1 hour')`,
+      [eventA, later],
+    )
+
+    const r = await logAs(SCANNER_ID)
+    const expected = await db.query<{ n: number }>('select count(*)::int as n from public.attendance where event_id = $1', [eventA])
+    expect(r.rows.length).toBe(expected.rows[0].n)
+    expect(r.rows.length).toBeGreaterThanOrEqual(2)
+    expect(Object.keys(r.rows[0]).sort()).toEqual(['attendance_id', 'name', 'scanned_at', 'total'])
+    expect(r.rows[0].name).toBe('Log Person')
+    expect(Number(r.rows[0].total)).toBe(expected.rows[0].n)
+    const times = r.rows.map((x) => new Date(x.scanned_at).getTime())
+    expect([...times].sort((a, b) => b - a)).toEqual(times)
+    // Nothing from the inactive event.
+    expect(r.rows.map((x) => x.name)).not.toContain('Maria Santos')
+  })
+
+  it('clamps the limit and still reports the full total', async () => {
+    const r = await logAs(SCANNER_ID, 1)
+    expect(r.rows).toHaveLength(1)
+    expect(Number(r.rows[0].total)).toBeGreaterThanOrEqual(2)
+    await expect(logAs(SCANNER_ID, 100000)).resolves.toBeTruthy()
+  })
+
+  it('refuses disabled, role-less and anonymous callers', async () => {
+    await expect(logAs(DISABLED_SCANNER_ID)).rejects.toThrow(/forbidden/)
+    await expect(logAs(NO_ROLE_ID)).rejects.toThrow(/forbidden/)
+    await expect(as(db, 'anon', (tx) => tx.query('select * from public.get_recent_check_ins(10)'))).rejects.toThrow(
+      /permission denied/,
+    )
+  })
+
+  it('returns nothing when no event is active', async () => {
+    await as(db, { userId: ADMIN_ID }, (tx) => tx.query('select public.set_active_event(null)'))
+    const r = await logAs(SCANNER_ID)
+    expect(r.rows).toHaveLength(0)
+    await as(db, { userId: ADMIN_ID }, (tx) => tx.query('select public.set_active_event($1)', [eventA]))
+  })
+})

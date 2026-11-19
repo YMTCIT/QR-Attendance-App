@@ -20,8 +20,18 @@ function readMs(name: string, fallback: number, min: number, max: number): numbe
 /** Minimum gap after a scan is processed before another is accepted. 500 / 800 / 1000 are typical. */
 export const SCAN_COOLDOWN_MS = readMs('VITE_SCAN_COOLDOWN_MS', 800, 300, 5000)
 
-/** How long the full-screen success overlay stays up. Independent of the cooldown. */
+/**
+ * How long the success highlight animation runs on the newest attendance-log
+ * row. (Successful check-ins no longer show a full-screen overlay; the name
+ * goes straight to the log.) The row stays marked until the next check-in.
+ */
 export const SUCCESS_OVERLAY_MS = readMs('VITE_SUCCESS_OVERLAY_MS', 1200, 500, 10000)
+
+/** How often the scanner's attendance log re-syncs (picks up other tablets and manual check-ins). */
+export const CHECK_IN_LOG_REFRESH_MS = readMs('VITE_CHECK_IN_LOG_REFRESH_MS', 10000, 3000, 120000)
+
+/** Number of most recent check-ins shown in the scanner's attendance log. */
+export const CHECK_IN_LOG_LIMIT = 50
 
 /** How long duplicate / invalid / error overlays stay up. */
 export const ERROR_OVERLAY_MS = readMs('VITE_ERROR_OVERLAY_MS', 2500, 500, 15000)

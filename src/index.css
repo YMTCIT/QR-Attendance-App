@@ -81,6 +81,17 @@ select {
 .muted {
   color: var(--ink-soft);
 }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
 .small {
   font-size: 0.875rem;
 }
@@ -497,23 +508,35 @@ select {
 .scanner-banner--error {
   background: var(--error);
 }
+/* Landscape: smaller camera on the left, attendance log fills the rest. */
 .scanner-main {
   flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+}
+.scanner-camera {
+  flex: 0 0 min(40%, 620px);
+  min-width: 0;
   min-height: 0;
   display: flex;
 }
 .scanner-stage {
   flex: 1;
+  min-width: 0;
   min-height: 0;
   display: flex;
-  flex-direction: row;
-  gap: 1rem;
-  padding: 1rem;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.75rem;
 }
 .scanner-viewport {
   position: relative;
-  flex: 1 1 auto;
-  min-width: 0;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  max-height: calc(100% - 4.5rem);
+  flex: 0 1 auto;
   min-height: 0;
   border-radius: 18px;
   overflow: hidden;
@@ -608,34 +631,24 @@ select {
     top: 88%;
   }
 }
+/* Compact status line under the camera. */
 .scanner-prompt {
-  flex: 0 0 300px;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 1rem;
+  justify-content: center;
+  gap: 0.5rem 0.9rem;
   text-align: center;
-  padding: 1rem;
-  border-radius: 18px;
-  background: rgb(255 255 255 / 0.05);
-}
-.scanner-prompt__title {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: clamp(1.8rem, 3.4vw, 2.8rem);
-  color: var(--gold);
-  line-height: 1.15;
 }
 .scanner-prompt__hint {
-  font-size: 1.05rem;
+  font-size: 1rem;
   opacity: 0.85;
 }
 .ready-indicator {
   display: inline-block;
-  padding: 0.7rem 1.4rem;
+  padding: 0.5rem 1.1rem;
   border-radius: 999px;
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   font-weight: 700;
   background: rgb(255 255 255 / 0.12);
 }
@@ -658,16 +671,17 @@ select {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 0.9rem;
-  padding: 1.5rem;
+  justify-content: safe center;
+  gap: 0.6rem;
+  padding: 1rem;
+  overflow-y: auto;
   text-align: center;
   background: rgb(18 6 6 / 0.92);
-  font-size: 1.05rem;
+  font-size: 0.95rem;
 }
 .camera-panel__title {
   font-family: var(--font-display);
-  font-size: clamp(1.5rem, 3vw, 2.2rem);
+  font-size: clamp(1.2rem, 2.2vw, 1.8rem);
   font-weight: 700;
   color: var(--gold);
 }
@@ -687,15 +701,155 @@ select {
   max-width: 520px;
 }
 
-/* Portrait: stack the prompt under the camera. */
+/* ---------- Attendance log (scanner screen) ---------- */
+.checkin-log {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px;
+  background: rgb(255 255 255 / 0.05);
+  overflow: hidden;
+}
+.checkin-log__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1.2rem;
+  border-bottom: 2px solid rgb(207 181 59 / 0.35);
+}
+.checkin-log__title {
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 2.4vw, 2rem);
+  font-weight: 700;
+  color: var(--gold);
+}
+.checkin-log__count {
+  font-size: 1.05rem;
+  opacity: 0.9;
+  white-space: nowrap;
+}
+.checkin-log__count strong {
+  font-size: 1.4rem;
+  color: #fff;
+}
+.checkin-log__list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.5rem;
+  list-style: none;
+}
+.checkin-log__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  border-left: 6px solid transparent;
+  font-size: 1.2rem;
+}
+.checkin-log__row + .checkin-log__row {
+  margin-top: 0.25rem;
+}
+.checkin-log__row:nth-child(even):not(.checkin-log__row--new) {
+  background: rgb(255 255 255 / 0.03);
+}
+.checkin-log__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.checkin-log__time {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+/* The most recent successful check-in on this tablet. */
+.checkin-log__row--new {
+  padding: 1.1rem 1rem;
+  border-left-color: var(--success);
+  background: rgb(21 128 61 / 0.35);
+  font-size: clamp(1.4rem, 2.6vw, 2rem);
+  animation-name: checkin-arrive;
+  animation-timing-function: ease-out;
+  animation-fill-mode: both;
+}
+.checkin-log__row--new .checkin-log__name {
+  font-weight: 800;
+}
+.checkin-log__row--new .checkin-log__time {
+  opacity: 1;
+  color: #bbf7d0;
+}
+.checkin-log__badge {
+  display: inline-grid;
+  place-items: center;
+  width: 1.4em;
+  height: 1.4em;
+  margin-right: 0.5em;
+  border-radius: 50%;
+  background: var(--success);
+  color: #fff;
+  font-size: 0.8em;
+  vertical-align: 0.1em;
+}
+@keyframes checkin-arrive {
+  0% {
+    transform: translateY(-12px) scale(0.98);
+    background: rgb(34 197 94 / 0.85);
+    box-shadow: 0 0 0 6px rgb(34 197 94 / 0.45);
+  }
+  100% {
+    transform: none;
+    background: rgb(21 128 61 / 0.35);
+    box-shadow: 0 0 0 0 rgb(34 197 94 / 0);
+  }
+}
+.checkin-log__empty {
+  margin: auto;
+  padding: 2rem 1rem;
+  text-align: center;
+  font-size: 1.15rem;
+  opacity: 0.75;
+}
+.checkin-log__stale {
+  padding: 0.4rem 1rem;
+  background: rgb(180 83 9 / 0.35);
+  font-size: 0.9rem;
+}
+.checkin-log__more {
+  padding: 0.5rem 1rem;
+  text-align: center;
+  font-size: 0.9rem;
+  opacity: 0.7;
+}
+@media (prefers-reduced-motion: reduce) {
+  .checkin-log__row--new {
+    animation: none;
+  }
+}
+
+/* Portrait: camera on top (smaller), log below. */
 @media (orientation: portrait) {
-  .scanner-stage {
+  .scanner-main {
     flex-direction: column;
   }
-  .scanner-prompt {
+  .scanner-camera {
     flex: 0 0 auto;
-    padding: 0.75rem;
-    gap: 0.5rem;
+  }
+  .scanner-viewport {
+    width: auto;
+    height: 30vh;
+    max-width: 100%;
+    max-height: none;
+    align-self: center;
   }
 }
 

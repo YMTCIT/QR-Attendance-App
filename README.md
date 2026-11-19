@@ -143,7 +143,7 @@ If you change environment variables later, **redeploy** (Deployments → ⋯ →
 1. As admin: **Dashboard → Events** → create an event → **Set active**.
 2. Import `samples/sample-registrations.csv`, or add a registrant with QR value `ABC001`.
 3. Show a QR code containing `ABC001` on a phone (any online QR generator works), 25–50 cm from the tablet, inside the gold frame:
-   - First scan → green **WELCOME! JUAN DELA CRUZ**
+   - First scan → **Juan Dela Cruz** appears at the top of the **Attendance Log**, highlighted green with the time
    - Same code again (move it away for ~1 s first) → amber **ALREADY CHECKED IN** with the original time
    - An unregistered code → red **INVALID QR CODE**
 4. On a laptop signed in as admin, the dashboard shows **Live** and the counts update within a second of each scan.
@@ -165,16 +165,18 @@ Before the first real event, go through the [physical-device checklist](docs/tes
 
 ### What the tablet shows
 
-| Situation | Overlay |
+The scanner screen shows the camera on one side and the **Attendance Log** on the other: everyone checked in to the active event, newest first, with their check-in time. It includes check-ins from other tablets and manual check-ins (refreshed every 10 s). The tablet shows only names and times.
+
+| Situation | What appears |
 |---|---|
-| First valid scan | green ✓ **WELCOME! / NAME / Attendance Recorded** |
+| First valid scan | The name goes to the **top of the log**, highlighted green ✓ with the time. No full-screen overlay; the next person can scan right away. |
 | Already checked in | amber **ALREADY CHECKED IN** + original time |
 | Unknown code | red **INVALID QR CODE** |
 | Registered for another event | red **NOT REGISTERED FOR THIS EVENT** |
 | No active event | red **NO ACTIVE EVENT** |
 | Network failure or timeout | red **CONNECTION ERROR** (never shows success) |
 
-Times are shown in Asia/Manila time.
+Every outcome except a successful check-in still uses a full-screen overlay, so problems are hard to miss. Times are shown in Asia/Manila time.
 
 ---
 
@@ -211,7 +213,8 @@ Defaults live in `src/config.ts`. Override any of them with Vercel environment v
 | Variable | Default | Meaning |
 |---|---|---|
 | `VITE_SCAN_COOLDOWN_MS` | 800 | Minimum gap between processed scans. Try 500 / 800 / 1000. |
-| `VITE_SUCCESS_OVERLAY_MS` | 1200 | How long the green success overlay stays up. |
+| `VITE_SUCCESS_OVERLAY_MS` | 1200 | Length of the "just checked in" flash on the newest log row. |
+| `VITE_CHECK_IN_LOG_REFRESH_MS` | 10000 | How often the Attendance Log re-syncs to show check-ins from other tablets. |
 | `VITE_ERROR_OVERLAY_MS` | 2500 | How long duplicate / invalid / error overlays stay up. |
 | `VITE_SAME_CODE_REARM_MS` | 1000 | The same QR must leave the view this long before it's accepted again. |
 | `VITE_SCAN_FPS` | 10 | Decode attempts per second. |

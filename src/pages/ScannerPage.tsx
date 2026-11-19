@@ -2,9 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { QRScanner, type QRScannerHandle } from '../components/QRScanner'
 import { FullScreenScanResult } from '../components/FullScreenScanResult'
+import { CheckInLog } from '../components/CheckInLog'
 import { StatusPill } from '../components/StatusPill'
 import { useAuth } from '../hooks/useAuth'
 import { useActiveEvent } from '../hooks/useActiveEvent'
+import { useCheckInLog } from '../hooks/useCheckInLog'
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
 import { useWakeLock } from '../hooks/useWakeLock'
 import type { CameraState } from '../hooks/useFrontCamera'
@@ -32,6 +34,9 @@ export default function ScannerPage() {
   const { event, loading: eventLoading, error: eventError, realtime, refresh: refreshEvent } = useActiveEvent()
   const online = useOnlineStatus()
   const wakeLock = useWakeLock(true)
+  const log = useCheckInLog(event?.id ?? null)
+  const addToLog = log.addLocal
+  const [highlightKey, setHighlightKey] = useState<string | null>(null)
 
   const gateRef = useRef<ScanGate>(new ScanGate({ cooldownMs: SCAN_COOLDOWN_MS, rearmMs: SAME_CODE_REARM_MS }))
   const scannerRef = useRef<QRScannerHandle>(null)
@@ -79,16 +84,24 @@ export default function ScannerPage() {
         if (!mountedRef.current) return
 
         gate.finish(performance.now(), { rearmSameCode: result.status !== 'network_error' })
-        gate.hold() // no scans while the overlay is visible
-
-        const duration = overlayDurationFor(result, SUCCESS_OVERLAY_MS, ERROR_OVERLAY_MS)
         setProcessing(false)
+
+        if (result.status === 'ok') {
+          // Success: no full-screen overlay. The name goes straight to the top
+          // of the attendance log, highlighted. Scanning resumes after the
+          // normal cooldown (the same code still has to leave the frame first).
+          setHighlightKey(addToLog(result.name, result.scanned_at))
+          if (soundRef.current) playSuccessBeep()
+          return
+        }
+
+        gate.hold() // no scans while the overlay is visible
+        const duration = overlayDurationFor(result, SUCCESS_OVERLAY_MS, ERROR_OVERLAY_MS)
         setOverlayMs(duration)
         setOutcome(result)
 
         if (soundRef.current) {
-          if (result.status === 'ok') playSuccessBeep()
-          else if (result.status === 'already') playWarningBeep()
+          if (result.status === 'already') playWarningBeep()
           else playErrorBeep()
         }
         if (result.status === 'no_event' || result.status === 'wrong_event') void refreshEvent()
@@ -103,7 +116,7 @@ export default function ScannerPage() {
         }, duration)
       })()
     },
-    [logout, refreshEvent],
+    [addToLog, logout, refreshEvent],
   )
 
   const toggleSound = () => {
@@ -198,13 +211,24 @@ export default function ScannerPage() {
       )}
 
       <main className="scanner-main">
-        {/* The scanner stays mounted for the life of this page. */}
-        <QRScanner
-          ref={scannerRef}
-          onDecode={handleDecode}
-          processing={processing}
-          ready={!processing && outcome === null}
-          onStatusChange={setCamera}
+        <div className="scanner-camera">
+          {/* The scanner stays mounted for the life of this page. */}
+          <QRScanner
+            ref={scannerRef}
+            onDecode={handleDecode}
+            processing={processing}
+            ready={!processing && outcome === null}
+            onStatusChange={setCamera}
+          />
+        </div>
+        <CheckInLog
+          entries={log.entries}
+          total={log.total}
+          loading={log.loading || eventLoading}
+          stale={log.stale}
+          hasEvent={eventLoading || event !== null}
+          highlightKey={highlightKey}
+          highlightMs={SUCCESS_OVERLAY_MS}
         />
       </main>
 
