@@ -163,6 +163,7 @@ Before the first real event, go through the [physical-device checklist](docs/tes
 | Block a scanner immediately | **Dashboard → Scanner Users → Disable**. |
 | Watch attendance | **Dashboard**: present / absent / rate / recent check-ins, updated live. |
 | Fix a mistake | Admins can manually mark someone present or undo a check-in. Both are logged. |
+| Clear an event's registrants | **Dashboard → Registrants → Delete event's registrants…**: pick the event, review the counts, **Continue**, then confirm (the Delete button unlocks after 2 s). Deletes every registrant assigned to that event **and their check-ins**. "Any event" registrants are kept. Cannot be undone, so export a CSV first if you need a copy. |
 
 ### What the tablet shows
 

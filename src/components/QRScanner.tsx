@@ -21,6 +21,8 @@ interface QRScannerProps {
   onToggleFacing: () => void
   /** Extra buttons shown beside the camera switch (e.g. the fullscreen toggle). */
   actions?: ReactNode
+  /** Optional logo shown directly above the camera box. */
+  logo?: { src: string; alt: string }
   onStatusChange?: (status: ReturnType<typeof useCamera>['state']) => void
   ref?: Ref<QRScannerHandle>
 }
@@ -35,7 +37,17 @@ interface QRScannerProps {
 const RENDER_WIDTH = 960
 const ELEMENT_ID = 'camera-reader'
 
-export function QRScanner({ onDecode, processing, ready, facing, onToggleFacing, actions, onStatusChange, ref }: QRScannerProps) {
+export function QRScanner({
+  onDecode,
+  processing,
+  ready,
+  facing,
+  onToggleFacing,
+  actions,
+  logo,
+  onStatusChange,
+  ref,
+}: QRScannerProps) {
   const { state, start, stop } = useCamera({ elementId: ELEMENT_ID, onDecode, fps: SCAN_FPS, facing })
   const viewportRef = useRef<HTMLDivElement>(null)
   const readerRef = useRef<HTMLDivElement>(null)
@@ -100,7 +112,8 @@ export function QRScanner({ onDecode, processing, ready, facing, onToggleFacing,
   const otherName = facing === 'front' ? 'back' : 'front'
 
   return (
-    <div className="scanner-stage">
+    <div className={`scanner-stage${logo ? ' scanner-stage--with-logo' : ''}`}>
+      {logo && <img className="scanner-logo" src={logo.src} alt={logo.alt} />}
       <div className="scanner-viewport" ref={viewportRef} style={running && ratio ? { aspectRatio: String(ratio) } : undefined}>
         <div className="scanner-scaler" style={{ width: RENDER_WIDTH, transform: `translate(-50%, -50%) scale(${scale})` }}>
           <div
@@ -132,7 +145,7 @@ export function QRScanner({ onDecode, processing, ready, facing, onToggleFacing,
         </span>
         <button
           type="button"
-          className="btn btn--ghost-light btn--small camera-switch"
+          className="btn btn--ghost btn--small camera-switch"
           onClick={onToggleFacing}
           disabled={switching}
           title={`Switch to the ${otherName} camera`}
@@ -157,7 +170,7 @@ function CameraStatusPanel({
   if (state.status === 'starting' || state.status === 'idle') {
     return (
       <div className="camera-panel">
-        <span className="spinner spinner--light" aria-hidden="true" />
+        <span className="spinner spinner--large" aria-hidden="true" />
         <p className="camera-panel__title">{state.message ?? `Starting ${cameraName.toLowerCase()} camera…`}</p>
         {state.status === 'idle' && (
           <button type="button" className="btn btn--gold btn--large" onClick={onRetry}>

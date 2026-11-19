@@ -37,6 +37,9 @@
   --success-bg: #e7f6ec;
   --warning: #d97706;
   --warning-bg: #fff4e0;
+  --pastel-yellow: #fdf3b5;
+  --pastel-yellow-line: #eedc7e;
+  --pastel-yellow-ink: #5c4a00;
   --error: #c81e1e;
   --error-bg: #fdecec;
   --radius: 12px;
@@ -298,6 +301,10 @@ select {
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
+.spinner--large {
+  width: 48px;
+  height: 48px;
+}
 .spinner--light {
   width: 48px;
   height: 48px;
@@ -470,15 +477,19 @@ select {
 /* =============================================================================
    Scanner (Xiaomi Pad 7, landscape first)
    ============================================================================= */
+/* Light mode: off-white page, white panels, dark text. The maroon header stays
+   as the brand bar; the camera picture and full-screen result overlays are
+   unchanged. */
 .scanner-page {
   height: 100dvh;
   display: flex;
   flex-direction: column;
-  background: #120606;
-  color: #fff;
+  background: var(--offwhite);
+  color: var(--ink);
   overflow: hidden;
 }
 .scanner-header {
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -522,11 +533,13 @@ select {
   font-size: 1.05rem;
 }
 .scanner-banner--warn {
-  background: var(--warning);
-  color: #1f1300;
+  background: var(--pastel-yellow);
+  border-bottom: 1px solid var(--pastel-yellow-line);
+  color: var(--pastel-yellow-ink);
 }
 .scanner-banner--error {
   background: var(--error);
+  color: #fff;
 }
 /* Landscape: smaller camera on the left, attendance log fills the rest. */
 .scanner-main {
@@ -550,21 +563,36 @@ select {
   flex-direction: column;
   justify-content: center;
   gap: 0.75rem;
+  /* Height of the logo above the camera (0 when there is none). */
+  --scanner-logo-h: 0px;
+}
+.scanner-stage--with-logo {
+  --scanner-logo-h: clamp(44px, 8vh, 80px);
+}
+.scanner-logo {
+  display: block;
+  flex: none;
+  align-self: center;
+  height: var(--scanner-logo-h);
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
 }
 .scanner-viewport {
   position: relative;
   width: 100%;
   aspect-ratio: 4 / 3;
-  max-height: calc(100% - 4.5rem);
+  max-height: calc(100% - 4.5rem - var(--scanner-logo-h) - 0.75rem);
   flex: 0 1 auto;
   min-height: 0;
   /* A real border (not an inset shadow): the picture is fitted inside it and
      clipped to the rounded inner edge, so it never covers or crosses it. */
-  border: 3px solid rgb(207 181 59 / 0.55);
+  border: 3px solid rgb(207 181 59 / 0.75);
   border-radius: 18px;
   overflow: hidden;
   isolation: isolate;
-  background: #000;
+  background: #1c1917;
+  box-shadow: var(--shadow);
 }
 .scanner-scaler {
   position: absolute;
@@ -685,10 +713,12 @@ select {
   border-radius: 999px;
   font-size: 1.1rem;
   font-weight: 700;
-  background: rgb(255 255 255 / 0.12);
+  background: #ece6dc;
+  color: var(--ink);
 }
 .ready-indicator--ok {
   background: var(--success);
+  color: #fff;
   animation: pulse 2s ease-in-out infinite;
 }
 .ready-indicator--busy {
@@ -711,17 +741,18 @@ select {
   padding: 1rem;
   overflow-y: auto;
   text-align: center;
-  background: rgb(18 6 6 / 0.92);
+  background: var(--surface);
+  color: var(--ink);
   font-size: 0.95rem;
 }
 .camera-panel__title {
   font-family: var(--font-display);
   font-size: clamp(1.2rem, 2.2vw, 1.8rem);
   font-weight: 700;
-  color: var(--gold);
+  color: var(--maroon);
 }
 .camera-panel--error .camera-panel__title {
-  color: #fca5a5;
+  color: var(--error);
 }
 .camera-panel__steps {
   text-align: left;
@@ -744,7 +775,9 @@ select {
   display: flex;
   flex-direction: column;
   border-radius: 18px;
-  background: rgb(255 255 255 / 0.05);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
   overflow: hidden;
 }
 .checkin-log__header {
@@ -753,22 +786,22 @@ select {
   justify-content: space-between;
   gap: 1rem;
   padding: 0.9rem 1.2rem;
-  border-bottom: 2px solid rgb(207 181 59 / 0.35);
+  border-bottom: 2px solid var(--gold);
 }
 .checkin-log__title {
   font-family: var(--font-display);
   font-size: clamp(1.4rem, 2.4vw, 2rem);
   font-weight: 700;
-  color: var(--gold);
+  color: var(--maroon);
 }
 .checkin-log__count {
   font-size: 1.05rem;
-  opacity: 0.9;
+  color: var(--ink-soft);
   white-space: nowrap;
 }
 .checkin-log__count strong {
   font-size: 1.4rem;
-  color: #fff;
+  color: var(--ink);
 }
 .checkin-log__list {
   flex: 1 1 auto;
@@ -792,7 +825,7 @@ select {
   margin-top: 0.25rem;
 }
 .checkin-log__row:nth-child(even):not(.checkin-log__row--new) {
-  background: rgb(255 255 255 / 0.03);
+  background: #faf7f2;
 }
 .checkin-log__name {
   min-width: 0;
@@ -810,7 +843,7 @@ select {
 .checkin-log__row--new {
   padding: 1.1rem 1rem;
   border-left-color: var(--success);
-  background: rgb(21 128 61 / 0.35);
+  background: #dcf5e3;
   font-size: clamp(1.4rem, 2.6vw, 2rem);
   animation-name: checkin-arrive;
   animation-timing-function: ease-out;
@@ -821,7 +854,7 @@ select {
 }
 .checkin-log__row--new .checkin-log__time {
   opacity: 1;
-  color: #bbf7d0;
+  color: var(--success);
 }
 .checkin-log__badge {
   display: inline-grid;
@@ -843,7 +876,7 @@ select {
   }
   100% {
     transform: none;
-    background: rgb(21 128 61 / 0.35);
+    background: #dcf5e3;
     box-shadow: 0 0 0 0 rgb(34 197 94 / 0);
   }
 }
@@ -852,11 +885,12 @@ select {
   padding: 2rem 1rem;
   text-align: center;
   font-size: 1.15rem;
-  opacity: 0.75;
+  color: var(--ink-soft);
 }
 .checkin-log__stale {
   padding: 0.4rem 1rem;
-  background: rgb(180 83 9 / 0.35);
+  background: var(--pastel-yellow);
+  color: var(--pastel-yellow-ink);
   font-size: 0.9rem;
 }
 .checkin-log__more {

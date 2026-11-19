@@ -9,7 +9,7 @@ npm run check             # tsc + oxlint + vitest
 npm run check:functions   # deno check of the three Edge Functions
 ```
 
-Last recorded run: **122 tests passed across 7 files**; `tsc -b` and `oxlint --deny-warnings` also passed.
+Last recorded run: **126 tests passed across 8 files**; `tsc -b` and `oxlint --deny-warnings` also passed.
 
 | File | What it verifies |
 |---|---|
@@ -19,6 +19,7 @@ Last recorded run: **122 tests passed across 7 files**; `tsc -b` and `oxlint --d
 | `tests/scanner-page.test.tsx` | Renders the real ScannerPage with a fake camera: requests `facingMode: {exact: "user"}`, 8 rapid decodes produce **1** request, a success goes to the top of the Attendance Log highlighted (no overlay) and survives a slow, older log sync, other outcomes still show their overlay, camera started once and never restarted, connection errors never show success. |
 | `tests/import-registration.test.ts` | Real `.xlsx` (multi-sheet) and `.csv` parsing; mismatched, `.xls`, empty and corrupt files; formulas not executed; header auto-mapping; validation with row numbers; leading-zero warnings; 500-row batching and progress; partial-failure reporting. |
 | `tests/session-persistence.test.tsx` | Staying signed in: the saved login is kept when a refresh fails offline (including after a reload), only `SIGNED_OUT` or Log out signs out, Log out is device-only and forgets the remembered role, the remembered role is used while the role lookup fails (with retries), a 401 check-in refreshes and retries instead of signing out, login-token requests wait for the network and retry, and the saved login is found under the real client's storage key. |
+| `tests/registrants-bulk-delete.test.tsx` | "Delete event's registrants": shows the counts, needs a second confirmation, the Delete button stays disabled for 2 s (and re-locks after Back), and nothing can be deleted for an event with no registrants. `database.test.ts` checks that only that event's registrants and their check-ins are removed and scanners cannot delete. |
 | `tests/authorization.test.ts` | Route guards; Edge Function staff auth; admin-only scanner management; webhook secret, validation and idempotency; CORS restriction; CSV formula-injection protection. |
 
 **Not covered:** true multi-connection concurrency (PGlite is single-connection). Correctness relies on PostgreSQL's unique index with `ON CONFLICT DO NOTHING`. To see it on a real database, follow `supabase/tests/manual_concurrency_check.sql` (two SQL sessions, about 2 minutes).

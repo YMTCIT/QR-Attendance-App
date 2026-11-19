@@ -16,6 +16,7 @@ import {
   updateRegistrant,
   type EventFilter,
 } from './api'
+import { DeleteEventRegistrantsDialog } from './DeleteEventRegistrantsDialog'
 
 const PAGE = 300
 const SOURCE_LABEL: Record<RegistrationSource, string> = {
@@ -43,6 +44,7 @@ export function RegistrantsPanel({ events, versions, userId, defaultEventId }: P
   const [deleting, setDeleting] = useState<{ row: AttendeeRow; checkIns: number } | null>(null)
   const [showQr, setShowQr] = useState<AttendeeRow | null>(null)
   const [importing, setImporting] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -118,6 +120,15 @@ export function RegistrantsPanel({ events, versions, userId, defaultEventId }: P
           </button>
           <button type="button" className="btn btn--primary" onClick={() => setEditing('new')}>
             + Add registrant
+          </button>
+          <button
+            type="button"
+            className="btn btn--danger-ghost"
+            onClick={() => setBulkDeleting(true)}
+            disabled={events.length === 0}
+            title="Delete every registrant assigned to one event"
+          >
+            Delete event&apos;s registrants…
           </button>
         </div>
       </div>
@@ -274,6 +285,15 @@ export function RegistrantsPanel({ events, versions, userId, defaultEventId }: P
             Copy value
           </button>
         </Modal>
+      )}
+
+      {bulkDeleting && (
+        <DeleteEventRegistrantsDialog
+          events={events}
+          initialEventId={typeof filter === 'number' ? filter : defaultEventId}
+          onClose={() => setBulkDeleting(false)}
+          onDeleted={() => setManualRefresh((n) => n + 1)}
+        />
       )}
 
       {importing && (

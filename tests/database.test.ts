@@ -383,6 +383,53 @@ describe('admin statistics and corrections', () => {
   })
 })
 
+describe('deleting all registrants of one event', () => {
+  it('removes only that event’s registrants and their check-ins; scanners cannot do it', async () => {
+    // A separate event with two registrants, one checked in, plus an "any event" registrant.
+    const ids = await as(db, { userId: ADMIN_ID }, async (tx) => {
+      const ev = await tx.query<{ id: number }>(`insert into public.events (name, date) values ('Bulk Event', '2026-12-09') returning id`)
+      const eventId = Number(ev.rows[0].id)
+      const a = await tx.query<{ id: number }>(
+        `insert into public.attendees (qr_code, name, event_id, source) values
+           ('BULK-1', 'Bulk One', $1, 'manual'), ('BULK-2', 'Bulk Two', $1, 'manual'),
+           ('BULK-ANY', 'Bulk Any', null, 'manual')
+         returning id`,
+        [eventId],
+      )
+      return { eventId, attendees: a.rows.map((r) => Number(r.id)) }
+    })
+    await db.query(
+      `insert into public.attendance (event_id, attendee_id, check_in_method) values ($1, $2, 'manual')`,
+      [ids.eventId, ids.attendees[0]],
+    )
+    const othersBefore = await db.query<{ n: number }>(
+      `select count(*)::int as n from public.attendees where event_id is distinct from $1`,
+      [ids.eventId],
+    )
+
+    // Scanner users cannot delete registrants (RLS: nothing visible, nothing deleted).
+    await as(db, { userId: SCANNER_ID }, (tx) => tx.query('delete from public.attendees where event_id = $1', [ids.eventId]))
+    const stillThere = await db.query<{ n: number }>(`select count(*)::int as n from public.attendees where event_id = $1`, [ids.eventId])
+    expect(stillThere.rows[0].n).toBe(2)
+
+    // What the admin "Delete event's registrants" button runs.
+    const del = await as(db, { userId: ADMIN_ID }, (tx) =>
+      tx.query<{ id: number }>('delete from public.attendees where event_id = $1 returning id', [ids.eventId]),
+    )
+    expect(del.rows).toHaveLength(2)
+
+    const left = await db.query<{ n: number }>(`select count(*)::int as n from public.attendees where event_id = $1`, [ids.eventId])
+    expect(left.rows[0].n).toBe(0)
+    const checkIns = await db.query<{ n: number }>(`select count(*)::int as n from public.attendance where event_id = $1`, [ids.eventId])
+    expect(checkIns.rows[0].n).toBe(0)
+    const othersAfter = await db.query<{ n: number }>(
+      `select count(*)::int as n from public.attendees where event_id is distinct from $1`,
+      [ids.eventId],
+    )
+    expect(othersAfter.rows[0].n).toBe(othersBefore.rows[0].n) // incl. the "any event" registrant
+  })
+})
+
 describe('scanner attendance log (get_recent_check_ins)', () => {
   type LogRow = { attendance_id: number; name: string; scanned_at: string; total: number }
   const logAs = (userId: string, limit = 50) =>

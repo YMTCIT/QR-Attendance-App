@@ -288,10 +288,11 @@ export default function ScannerPage() {
             facing={facing}
             onToggleFacing={toggleFacing}
             onStatusChange={setCamera}
+            logo={{ src: '/brand/cit-logo.svg', alt: 'CIT University' }}
             actions={
               <button
                 type="button"
-                className="btn btn--ghost-light btn--small fullscreen-toggle"
+                className="btn btn--ghost btn--small fullscreen-toggle"
                 onClick={() => void toggleFullscreen()}
                 aria-pressed={fullscreen}
                 title={fullscreen ? 'Show the header again' : 'Hide the header and show only the scanner and attendance log'}

@@ -12,7 +12,7 @@ export default defineConfig({
       // The manifest lives in public/manifest.webmanifest so it can be edited
       // by hand; the plugin only generates the service worker.
       manifest: false,
-      includeAssets: ['favicon.svg', 'icons/*.png'],
+      includeAssets: ['favicon.svg', 'icons/*.png', 'brand/*.svg'],
       workbox: {
         // Cache only the built app shell. Supabase API / Realtime / Edge
         // Function traffic is never cached: attendance must always be
