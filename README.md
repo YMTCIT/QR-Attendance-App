@@ -1,17 +1,3 @@
-# CIT QR Attendance System
-
-Event check-in for CIT University. A **Xiaomi Pad 7** stands at the entrance with its **front (selfie) camera** facing arriving attendees. Each attendee shows the QR code they received by email, the tablet scans it, Supabase records the check-in **exactly once**, and a full-screen overlay greets them by name. Administrators watch attendance update live on a dashboard.
-
-**Built with:** React 19 + TypeScript + Vite (PWA) · html5-qrcode · Supabase (PostgreSQL, Auth, Realtime, Edge Functions) · hosted on Vercel.
-
-**What it deliberately does *not* do**
-- No check-out, time-out or duration tracking. One check-in per attendee per event.
-- No QR generation. Codes come from Microsoft Forms + Power Automate (or any external process).
-- No attendee accounts. Only two staff roles: **Administrator** and **Scanner User**.
-- No offline mode. A check-in shows as successful only after Supabase confirms it.
-
----
-
 ## Contents
 
 1. [Run it locally](#1-run-it-locally)
