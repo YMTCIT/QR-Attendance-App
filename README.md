@@ -180,7 +180,7 @@ Times are shown in Asia/Manila time.
 
 ## 4. Importing registrations
 
-**Start from the template:** [`samples/attendee-import-template.xlsx`](samples/attendee-import-template.xlsx). Fill in the **Attendees** sheet, one attendee per row. Only **QR Code** and **Full Name** are required. The **How to fill in** sheet explains each column and shows example rows. The ID and QR columns are pre-formatted as Text, so leading zeros are kept. (Regenerate it with `npm run template`.)
+**Start from a template:** in the import window, click **Download Excel template (.xlsx)** or **Download CSV template (.csv)**. The Excel file is also at [`public/templates/attendee-import-template.xlsx`](public/templates/attendee-import-template.xlsx). Fill in the **Attendees** sheet, one attendee per row. Only **QR Code** and **Full Name** are required. The **How to fill in** sheet explains each column and shows example rows. The ID and QR columns are pre-formatted as Text, so leading zeros are kept. (Regenerate it with `npm run template`.)
 
 | QR Code | Full Name | Student ID | Email | Department | Section | Event |
 |---|---|---|---|---|---|---|

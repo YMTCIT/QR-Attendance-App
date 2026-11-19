@@ -14,6 +14,15 @@ export const IMPORT_FIELDS = [
 
 export type ImportFieldKey = (typeof IMPORT_FIELDS)[number]['key']
 
+/**
+ * Header row of the downloadable import templates (Excel and CSV). Every
+ * header is auto-detected by autoDetectMapping, one per field, in order.
+ * The Excel file is built by scripts/generate-import-template.mjs.
+ */
+export const TEMPLATE_HEADERS = ['QR Code', 'Full Name', 'Student ID', 'Email', 'Department', 'Section', 'Event'] as const
+export const EXCEL_TEMPLATE_URL = '/templates/attendee-import-template.xlsx'
+export const CSV_TEMPLATE_FILENAME = 'attendee-import-template.csv'
+
 /** Column index per field, or null when not mapped. */
 export type ColumnMapping = Record<ImportFieldKey, number | null>
 

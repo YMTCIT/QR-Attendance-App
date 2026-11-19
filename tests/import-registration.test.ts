@@ -7,7 +7,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import writeXlsxFile from 'write-excel-file/node'
 import { detectKind, readSpreadsheet, SpreadsheetError, type SheetCell } from '../src/lib/excel'
-import { autoDetectMapping, emptyMapping, missingRequired, normalizeHeader } from '../src/features/imports/columnMapping'
+import {
+  EXCEL_TEMPLATE_URL,
+  TEMPLATE_HEADERS,
+  autoDetectMapping,
+  emptyMapping,
+  missingRequired,
+  normalizeHeader,
+} from '../src/features/imports/columnMapping'
 import { toBatches, validateImportRows } from '../src/features/imports/validateRows'
 
 // ---- Supabase mock for the import API -------------------------------------
@@ -231,19 +238,21 @@ describe('importing registrations', () => {
   })
 })
 
-describe('attendee import template (samples/attendee-import-template.xlsx)', () => {
-  it('auto-maps every column and imports nothing while still blank', async () => {
+describe('downloadable import templates', () => {
+  const ALL_FIELDS_MAPPED = { qr_code: 0, name: 1, id_number: 2, email: 3, department: 4, section: 5, event: 6 }
+
+  it('Excel template (public/templates) auto-maps every column and imports nothing while still blank', async () => {
     const { readFileSync } = await import('node:fs')
-    const bytes = readFileSync(new URL('../samples/attendee-import-template.xlsx', import.meta.url))
+    const bytes = readFileSync(new URL(`../public${EXCEL_TEMPLATE_URL}`, import.meta.url))
     const wb = await readSpreadsheet(new File([new Uint8Array(bytes)], 'attendee-import-template.xlsx'))
 
     expect(wb.sheets.map((s) => s.name)).toEqual(['Attendees', 'How to fill in'])
     const sheet = wb.sheets[0]
     const headers = sheet.rows[0].map((c) => c.text)
-    expect(headers).toEqual(['QR Code', 'Full Name', 'Student ID', 'Email', 'Department', 'Section', 'Event'])
+    expect(headers).toEqual([...TEMPLATE_HEADERS])
 
     const mapping = autoDetectMapping(headers)
-    expect(mapping).toEqual({ qr_code: 0, name: 1, id_number: 2, email: 3, department: 4, section: 5, event: 6 })
+    expect(mapping).toEqual(ALL_FIELDS_MAPPED)
 
     const result = validateImportRows({
       dataRows: sheet.rows.slice(1),
@@ -254,5 +263,20 @@ describe('attendee import template (samples/attendee-import-template.xlsx)', () 
     })
     expect(result.valid).toHaveLength(0)
     expect(result.errors).toHaveLength(0)
+  })
+
+  it('CSV template (built in the browser) round-trips through the importer once filled in', async () => {
+    const { toCsv } = await import('../src/lib/csv')
+    // What an admin produces after filling in the downloaded template.
+    const filled = toCsv([...TEMPLATE_HEADERS], [['CIT-001', 'Ana Lim', '00260004', 'ana@cit.example', 'BSCE', '1C', '']])
+    const wb = await readSpreadsheet(new File(['﻿' + filled], 'attendee-import-template.csv'))
+    const rows = wb.sheets[0].rows
+    expect(rows[0].map((c) => c.text)).toEqual([...TEMPLATE_HEADERS])
+
+    const mapping = autoDetectMapping(rows[0].map((c) => c.text))
+    expect(mapping).toEqual(ALL_FIELDS_MAPPED)
+    const result = validateImportRows({ dataRows: rows.slice(1), firstRowNumber: 2, mapping, defaultEventId: null, events: [] })
+    expect(result.errors).toHaveLength(0)
+    expect(result.valid[0]).toMatchObject({ qr_code: 'CIT-001', name: 'Ana Lim', id_number: '00260004' })
   })
 })

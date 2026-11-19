@@ -1,5 +1,9 @@
-// Generates samples/attendee-import-template.xlsx — a blank template for
-// Dashboard → Registrants → Import Excel. Run: npm run template
+// Generates public/templates/attendee-import-template.xlsx — a blank template
+// for Dashboard → Registrants → Import Excel, downloadable from that dialog.
+// Run: npm run template
+//
+// Keep the headers in sync with TEMPLATE_HEADERS in
+// src/features/imports/columnMapping.ts (a test checks this).
 //
 // Sheet 1 "Attendees": the headers the importer auto-detects, with every data
 // cell pre-formatted as TEXT so IDs and QR codes keep their leading zeros.
@@ -9,7 +13,7 @@ import writeXlsxFile from 'write-excel-file/node'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const out = join(dirname(fileURLToPath(import.meta.url)), '..', 'samples', 'attendee-import-template.xlsx')
+const out = join(dirname(fileURLToPath(import.meta.url)), '..', 'public', 'templates', 'attendee-import-template.xlsx')
 
 const MAROON = '#7A0C0C'
 const GOLD = '#F3E3A6'

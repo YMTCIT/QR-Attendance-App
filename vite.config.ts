@@ -19,7 +19,9 @@ export default defineConfig({
         // confirmed live by the server (no offline attendance queueing).
         globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api\//],
+        // /templates/ holds downloadable import templates; never answer those
+        // requests with the app shell.
+        navigateFallbackDenylist: [/^\/api\//, /^\/templates\//],
         runtimeCaching: [],
       },
     }),

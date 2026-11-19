@@ -3,7 +3,10 @@ import { Modal } from './Modal'
 import { EventSelector } from './EventSelector'
 import { readSpreadsheet, SpreadsheetError, type Workbook } from '../lib/excel'
 import {
+  CSV_TEMPLATE_FILENAME,
+  EXCEL_TEMPLATE_URL,
   IMPORT_FIELDS,
+  TEMPLATE_HEADERS,
   autoDetectMapping,
   findHeaderRowIndex,
   missingRequired,
@@ -18,6 +21,7 @@ import {
   type ImportOutcome,
   type ImportProgress,
 } from '../features/imports/api'
+import { downloadCsv } from '../lib/csv'
 import { formatNumber } from '../lib/format'
 import { IMPORT_MAX_FILE_BYTES } from '../config'
 import type { EventRow } from '../types/database'
@@ -180,6 +184,29 @@ export function ExcelRegistrationImporter({ events, defaultEventId, userId, onCl
 
       {step === 'choose' || step === 'map' ? (
         <>
+          <div className="template-download">
+            <div>
+              <strong>Need a file to start from?</strong>
+              <p className="muted small">
+                Download a template, fill in one attendee per row (only <strong>QR Code</strong> and{' '}
+                <strong>Full Name</strong> are required), then upload it below. The Excel template keeps leading zeros
+                in IDs and includes a "How to fill in" guide.
+              </p>
+            </div>
+            <div className="template-download__actions">
+              <a className="btn btn--ghost btn--small" href={EXCEL_TEMPLATE_URL} download>
+                Download Excel template (.xlsx)
+              </a>
+              <button
+                type="button"
+                className="btn btn--ghost btn--small"
+                onClick={() => downloadCsv(CSV_TEMPLATE_FILENAME, [...TEMPLATE_HEADERS], [])}
+              >
+                Download CSV template (.csv)
+              </button>
+            </div>
+          </div>
+
           <div className="form-grid">
             <EventSelector
               id="import-event"
