@@ -2,6 +2,25 @@
    CIT QR Attendance — styles (plain CSS, tablet-first)
    ============================================================================= */
 
+/* Nexa (Fontfabric), self-hosted from public/fonts. Two weights only:
+   ExtraLight for regular text, Heavy for headings and anything bold. Because
+   only 200 and 900 exist, the browser maps normal text (400/500) to
+   ExtraLight and bold text (600+) to Heavy automatically. */
+@font-face {
+  font-family: 'Nexa';
+  src: url('/fonts/Nexa-ExtraLight.ttf') format('truetype');
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Nexa';
+  src: url('/fonts/Nexa-Heavy.ttf') format('truetype');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --maroon: #8b0000;
   --maroon-dark: #5e0000;
@@ -22,8 +41,8 @@
   --error-bg: #fdecec;
   --radius: 12px;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 4px 16px rgb(60 20 10 / 0.08);
-  --font-display: 'Playfair Display', Georgia, 'Times New Roman', serif;
-  --font-body: 'DM Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Nexa', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-body: 'Nexa', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color-scheme: light;
 }
 
@@ -54,6 +73,7 @@ h1,
 h2,
 h3 {
   font-family: var(--font-display);
+  font-weight: 900;
   line-height: 1.2;
   margin: 0;
 }
@@ -538,10 +558,13 @@ select {
   max-height: calc(100% - 4.5rem);
   flex: 0 1 auto;
   min-height: 0;
+  /* A real border (not an inset shadow): the picture is fitted inside it and
+     clipped to the rounded inner edge, so it never covers or crosses it. */
+  border: 3px solid rgb(207 181 59 / 0.55);
   border-radius: 18px;
   overflow: hidden;
+  isolation: isolate;
   background: #000;
-  box-shadow: inset 0 0 0 2px rgb(207 181 59 / 0.35);
 }
 .scanner-scaler {
   position: absolute;
@@ -554,13 +577,16 @@ select {
   width: 100%;
   border: 0 !important;
 }
-/* Mirror the PREVIEW only (natural "selfie" view for people facing the
-   tablet). Decoding reads raw frames from the video element, unaffected by
-   CSS, and html5-qrcode also tries a flipped copy of each frame. */
 .scanner-reader video {
   display: block;
   width: 100% !important;
   height: auto !important;
+}
+/* Front camera: mirror the PREVIEW only (natural "selfie" view for people
+   facing the tablet). Decoding reads raw frames from the video element,
+   unaffected by CSS, and html5-qrcode also tries a flipped copy of each frame.
+   The back camera is shown as-is. */
+.scanner-reader--mirror video {
   transform: scaleX(-1);
 }
 /* We draw our own guide; hide html5-qrcode's built-in shading. */
@@ -643,6 +669,15 @@ select {
 .scanner-prompt__hint {
   font-size: 1rem;
   opacity: 0.85;
+}
+.camera-switch span,
+.fullscreen-toggle span {
+  font-size: 1.1em;
+}
+/* Kiosk view: header hidden; respect notches / rounded corners. */
+.scanner-page--fullscreen .scanner-main {
+  padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+    max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
 }
 .ready-indicator {
   display: inline-block;

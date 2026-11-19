@@ -9,7 +9,8 @@ import { useActiveEvent } from '../hooks/useActiveEvent'
 import { useCheckInLog } from '../hooks/useCheckInLog'
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
 import { useWakeLock } from '../hooks/useWakeLock'
-import type { CameraState } from '../hooks/useFrontCamera'
+import type { CameraState } from '../hooks/useCamera'
+import type { CameraChoice } from '../lib/cameraSelection'
 import { ScanGate } from '../features/attendance/scanGate'
 import { submitCheckIn } from '../features/attendance/api'
 import { overlayDurationFor } from '../features/attendance/checkInResult'
@@ -19,12 +20,22 @@ import { playErrorBeep, playSuccessBeep, playWarningBeep, unlockAudio } from '..
 import type { ScanOutcome } from '../types/attendance'
 
 const SOUND_KEY = 'cit-qr:sound'
+const CAMERA_KEY = 'cit-qr:camera'
 
 function readSoundPref(): boolean {
   try {
     return localStorage.getItem(SOUND_KEY) !== 'off'
   } catch {
     return true
+  }
+}
+
+/** Front camera unless this device was switched to the back camera before. */
+function readCameraPref(): CameraChoice {
+  try {
+    return localStorage.getItem(CAMERA_KEY) === 'back' ? 'back' : 'front'
+  } catch {
+    return 'front'
   }
 }
 
@@ -48,6 +59,11 @@ export default function ScannerPage() {
   const [processing, setProcessing] = useState(false)
   const [soundOn, setSoundOn] = useState(readSoundPref)
   const [camera, setCamera] = useState<CameraState | null>(null)
+  const [facing, setFacing] = useState<CameraChoice>(readCameraPref)
+  /** Kiosk view: header hidden, only scanner + attendance log + this toggle. */
+  const [fullscreen, setFullscreen] = useState(false)
+  /** True while WE hold browser fullscreen, so leaving it (Esc / back) also exits kiosk view. */
+  const browserFullscreenRef = useRef(false)
   // Mirror of soundOn for the async decode handler (avoids stale closures).
   const soundRef = useRef(soundOn)
 
@@ -131,6 +147,54 @@ export default function ScannerPage() {
     }
   }
 
+  // Leaving browser fullscreen some other way (Esc, Android back) restores the header.
+  useEffect(() => {
+    const onChange = () => {
+      if (!document.fullscreenElement && browserFullscreenRef.current) {
+        browserFullscreenRef.current = false
+        setFullscreen(false)
+      }
+    }
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+
+  const toggleFullscreen = async () => {
+    if (!fullscreen) {
+      setFullscreen(true)
+      // Also hide the browser's own bars where supported. If the browser
+      // refuses, the in-page view (header hidden) still applies.
+      try {
+        if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
+          await document.documentElement.requestFullscreen({ navigationUI: 'hide' })
+          browserFullscreenRef.current = true
+        }
+      } catch {
+        // not allowed / not supported
+      }
+      return
+    }
+    setFullscreen(false)
+    if (document.fullscreenElement && browserFullscreenRef.current) {
+      browserFullscreenRef.current = false
+      try {
+        await document.exitFullscreen()
+      } catch {
+        // already left
+      }
+    }
+  }
+
+  const toggleFacing = () => {
+    const next: CameraChoice = facing === 'front' ? 'back' : 'front'
+    setFacing(next)
+    try {
+      localStorage.setItem(CAMERA_KEY, next)
+    } catch {
+      // storage unavailable — preference just won't persist
+    }
+  }
+
   const connectionPill = !online ? (
     <StatusPill tone="bad" label="Offline" title="No network connection. Check-ins cannot be confirmed." />
   ) : realtime === 'connected' ? (
@@ -141,15 +205,16 @@ export default function ScannerPage() {
     <StatusPill tone="warn" label="Online (no live updates)" title="Realtime unavailable. Checking the active event every 30 seconds." />
   )
 
+  const cameraName = camera?.facing === 'back' ? 'Back camera' : 'Front camera'
   const cameraPill =
     camera?.status === 'running' ? (
       camera.verification === 'verified' ? (
-        <StatusPill tone="ok" label="Front camera" title={camera.label ?? undefined} />
+        <StatusPill tone="ok" label={cameraName} title={camera.label ?? undefined} />
       ) : (
         <StatusPill
           tone="warn"
-          label="Front camera (unverified)"
-          title={`The browser did not report which way this camera faces. Confirm the preview shows the people in front of the tablet. ${camera.label ?? ''}`}
+          label={`${cameraName} (unverified)`}
+          title={`The browser did not report which way this camera faces. Check the preview shows what you expect. ${camera.label ?? ''}`}
         />
       )
     ) : camera?.status === 'starting' ? (
@@ -159,7 +224,8 @@ export default function ScannerPage() {
     )
 
   return (
-    <div className="scanner-page">
+    <div className={`scanner-page${fullscreen ? ' scanner-page--fullscreen' : ''}`}>
+      {!fullscreen && (
       <header className="scanner-header">
         <div className="scanner-header__brand">
           <img src="/favicon.svg" alt="" width={36} height={36} />
@@ -197,6 +263,7 @@ export default function ScannerPage() {
           </button>
         </div>
       </header>
+      )}
 
       {!eventLoading && !event && (
         <div className="scanner-banner scanner-banner--warn" role="status">
@@ -218,7 +285,20 @@ export default function ScannerPage() {
             onDecode={handleDecode}
             processing={processing}
             ready={!processing && outcome === null}
+            facing={facing}
+            onToggleFacing={toggleFacing}
             onStatusChange={setCamera}
+            actions={
+              <button
+                type="button"
+                className="btn btn--ghost-light btn--small fullscreen-toggle"
+                onClick={() => void toggleFullscreen()}
+                aria-pressed={fullscreen}
+                title={fullscreen ? 'Show the header again' : 'Hide the header and show only the scanner and attendance log'}
+              >
+                <span aria-hidden="true">{fullscreen ? '✕' : '⛶'}</span> {fullscreen ? 'Exit full screen' : 'Full screen'}
+              </button>
+            }
           />
         </div>
         <CheckInLog

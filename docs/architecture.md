@@ -77,7 +77,7 @@ cit-qr-attendance/
 │  │  ├─ registrants/ api, RegistrantsPanel (+ manual add/edit form)
 │  │  ├─ imports/     columnMapping, validateRows, api
 │  │  └─ users/       api, ScannerUsersPanel
-│  ├─ hooks/          useAuth, useFrontCamera, useWakeLock, useRealtimeAttendance,
+│  ├─ hooks/          useAuth, useCamera, useCheckInLog, useWakeLock, useRealtimeAttendance,
 │  │                  useActiveEvent, useOnlineStatus
 │  ├─ lib/            supabase, excel, csv, format, validation, cameraSelection,
 │  │                  fetchAll, beep
@@ -121,6 +121,8 @@ Design notes:
 | **Spreadsheet import** | File type is checked from content, not extension. Formulas are never executed (only cached values are read). |
 | **Headers** | `vercel.json` sets `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy: camera=(self)`, and SPA rewrites so deep links like `/scan` work. |
 
-### Front-camera selection
+### Camera selection
 
-The app requests `facingMode: {exact: "user"}`, then falls back to device capabilities and labels (Android Chrome reports "facing front"). If the browser ever reports a rear camera, scanning stops with an error. When the browser reports nothing, the header shows "Front camera (unverified)".
+The scanner uses the **front** camera by default; **⇄ Use back camera** switches (remembered per device in `localStorage`). For the chosen camera the app requests `facingMode: {exact: "user" | "environment"}`, then falls back to device capabilities and labels (Android Chrome reports "facing front" / "facing back"). If the browser opens the opposite camera, scanning stops with an error. It never silently uses the other camera. When the browser reports nothing, the header shows "(unverified)". Only the front preview is mirrored. Logic: `src/hooks/useCamera.ts`, `src/lib/cameraSelection.ts`.
+
+**Decoding** covers the whole camera picture (no centre-only region) at 15 fps, using Android Chrome's native BarcodeDetector when available. The gold frame is only a visual guide. The preview is fitted *inside* the box ("contain") using the camera's real aspect ratio.

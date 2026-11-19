@@ -17,8 +17,12 @@ function readMs(name: string, fallback: number, min: number, max: number): numbe
   return Math.round(value)
 }
 
-/** Minimum gap after a scan is processed before another is accepted. 500 / 800 / 1000 are typical. */
-export const SCAN_COOLDOWN_MS = readMs('VITE_SCAN_COOLDOWN_MS', 800, 300, 5000)
+/**
+ * Minimum gap after a scan is processed before another is accepted. 500 / 800
+ * / 1000 are typical. Successful check-ins show no overlay, so this is the only
+ * pause before the next attendee can scan.
+ */
+export const SCAN_COOLDOWN_MS = readMs('VITE_SCAN_COOLDOWN_MS', 500, 300, 5000)
 
 /**
  * How long the success highlight animation runs on the newest attendance-log
@@ -43,8 +47,11 @@ export const ERROR_OVERLAY_MS = readMs('VITE_ERROR_OVERLAY_MS', 2500, 500, 15000
  */
 export const SAME_CODE_REARM_MS = readMs('VITE_SAME_CODE_REARM_MS', 1000, 200, 10000)
 
-/** Decode attempts per second. ~10 is a good balance for the Xiaomi Pad 7. */
-export const SCAN_FPS = readMs('VITE_SCAN_FPS', 10, 2, 30)
+/**
+ * Decode attempts per second (the whole frame is decoded each time). 15 picks
+ * a code up quickly on the Xiaomi Pad 7, which decodes natively.
+ */
+export const SCAN_FPS = readMs('VITE_SCAN_FPS', 15, 2, 30)
 
 /** Check-in request timeout before showing CONNECTION ERROR. */
 export const CHECK_IN_TIMEOUT_MS = readMs('VITE_CHECK_IN_TIMEOUT_MS', 10000, 2000, 30000)

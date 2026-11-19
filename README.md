@@ -135,8 +135,9 @@ If you change environment variables later, **redeploy** (Deployments → ⋯ →
 
 1. Open `https://<your-app>.vercel.app` in **Google Chrome** on the Xiaomi Pad 7 and sign in with a **scanner** account. You land on `/scan`.
 2. Tap **Allow** when Chrome asks for the camera.
-3. Check that the preview shows the **people in front of the screen** (mirrored, like a selfie) and the header says **"Front camera"** in green. If it says **"Front camera (unverified)"** in amber, just confirm visually that it's the front camera.
-4. Chrome menu **⋮ → Add to Home screen / Install app**. Launching from the icon opens full-screen and keeps the screen awake. As a backup, set Android **Settings → Display → Sleep** to a long timeout.
+3. Check that the preview shows the **people in front of the screen** (mirrored, like a selfie) and the header says **"Front camera"** in green. If it says **"Front camera (unverified)"** in amber, just confirm visually that it's the front camera. To scan with the **back** camera instead, tap **⇄ Use back camera** under the preview. Each tablet remembers its choice.
+4. Tap **⛶ Full screen** under the preview for event use. It hides the header (title, Sound, Dashboard, Log out) and Chrome's address bar, leaving only the scanner, the Attendance Log and the toggle. Tap **✕ Exit full screen** (or use Android's back gesture) to get the header back.
+5. Chrome menu **⋮ → Add to Home screen / Install app**. Launching from the icon opens full-screen and keeps the screen awake. As a backup, set Android **Settings → Display → Sleep** to a long timeout.
 
 ### 2.7 Rehearsal test
 
@@ -212,12 +213,12 @@ Defaults live in `src/config.ts`. Override any of them with Vercel environment v
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `VITE_SCAN_COOLDOWN_MS` | 800 | Minimum gap between processed scans. Try 500 / 800 / 1000. |
+| `VITE_SCAN_COOLDOWN_MS` | 500 | Minimum gap between processed scans. Try 500 / 800 / 1000. |
 | `VITE_SUCCESS_OVERLAY_MS` | 1200 | Length of the "just checked in" flash on the newest log row. |
 | `VITE_CHECK_IN_LOG_REFRESH_MS` | 10000 | How often the Attendance Log re-syncs to show check-ins from other tablets. |
 | `VITE_ERROR_OVERLAY_MS` | 2500 | How long duplicate / invalid / error overlays stay up. |
 | `VITE_SAME_CODE_REARM_MS` | 1000 | The same QR must leave the view this long before it's accepted again. |
-| `VITE_SCAN_FPS` | 10 | Decode attempts per second. |
+| `VITE_SCAN_FPS` | 15 | Decode attempts per second. The whole camera picture is scanned, so a code is read anywhere in view. |
 | `VITE_CHECK_IN_TIMEOUT_MS` | 10000 | After this, the scanner shows CONNECTION ERROR. |
 
 ---
@@ -239,21 +240,22 @@ Defaults live in `src/config.ts`. Override any of them with Vercel environment v
 | Message / symptom | Fix |
 |---|---|
 | "Secure Connection Required" | Open the **https://** address. |
-| "Front Camera Access Denied" | Address-bar icon → Permissions → Camera → Allow, then **Retry Camera**. For the installed app: Android Settings → Apps → Chrome → Permissions → Camera. |
-| "Front Camera Busy" | Close the camera app, video calls or other tabs using the camera, then retry. |
-| "Front Camera Not Available" | Restart Chrome; update Chrome and Android. The app never falls back to the rear camera. |
-| "Front camera (unverified)" | Chrome didn't report the camera direction. Confirm visually that it's the front camera. |
-| Codes are slow to read | Attendees should raise screen brightness and hold the phone steady, 25–50 cm away, inside the gold frame. Avoid strong light behind them. You can try `VITE_SCAN_FPS=15`. |
+| "Camera Access Denied" | Address-bar icon → Permissions → Camera → Allow, then **Retry Camera**. For the installed app: Android Settings → Apps → Chrome → Permissions → Camera. |
+| "Front/Back Camera Busy" | Close the camera app, video calls or other tabs using the camera, then retry. |
+| "Front/Back Camera Not Available" | Restart Chrome; update Chrome and Android, or switch cameras with **⇄**. The app never silently uses the other camera. |
+| "Front camera (unverified)" | Chrome didn't report the camera direction. Confirm visually that it's the right camera. |
+| Codes are slow to read | Attendees should raise screen brightness and hold the phone steady, 25–50 cm away. Avoid strong light behind them. You can try `VITE_SCAN_FPS=20`. |
 
 ---
 
 ## 7. Known limitations
 
-- **Front-camera detection depends on the browser.** The app never silently uses a rear camera, but if Chrome doesn't report the direction it shows "unverified", so check on the device.
+- **Camera direction detection depends on the browser.** The app never silently uses the other camera, but if Chrome doesn't report the direction it shows "unverified", so check on the device.
 - **Scanning stops while the screen is locked or Chrome is in the background.** It recovers when the page is visible again.
 - **Realtime is best-effort.** If the connection drops, the dashboard shows *Not live* and catches up on reconnect. Tablets also re-check the active event every 30 s.
 - **Power Automate *Resubmit*** on a run that already succeeded creates a second registration with a new code. See [docs/power-automate.md](docs/power-automate.md).
-- **Internet is required.** Every check-in is confirmed online. Fonts load from Google Fonts (system fonts are used if unavailable).
+- **Internet is required.** Every check-in is confirmed online.
+- **Fonts:** Nexa ExtraLight and Nexa Heavy (Fontfabric) are served from `public/fonts/`. Check that your Nexa license allows web embedding.
 - **`npm audit`** reports moderate advisories in `workbox-build`, a build-time-only dependency that isn't shipped to browsers.
 
 ---

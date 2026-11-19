@@ -1,23 +1,26 @@
 /**
  * Scanner logic: scan gate (cooldown, in-flight lock, per-code re-arm, overlay
- * hold), front-camera selection, and decode-region sizing.
+ * hold), front/back camera selection, and guide-frame sizing.
  */
 import { describe, expect, it } from 'vitest'
 import { ScanGate } from '../src/features/attendance/scanGate'
 import {
+  chooseDevice,
   chooseFrontDevice,
   classifyCameraError,
   classifyLabel,
+  facingModeFor,
   verifyRunningTrack,
 } from '../src/lib/cameraSelection'
-import { computeQrBox } from '../src/hooks/useFrontCamera'
-import { SCAN_COOLDOWN_MS, SUCCESS_OVERLAY_MS } from '../src/config'
+import { computeQrBox } from '../src/hooks/useCamera'
+import { SCAN_COOLDOWN_MS, SCAN_FPS, SUCCESS_OVERLAY_MS } from '../src/config'
 
 const opts = { cooldownMs: 800, rearmMs: 1000 }
 
 describe('config defaults', () => {
-  it('uses an 800 ms scan cooldown and a separate 1200 ms success overlay', () => {
-    expect(SCAN_COOLDOWN_MS).toBe(800)
+  it('uses a 500 ms scan cooldown, 15 decodes per second and a separate 1200 ms success highlight', () => {
+    expect(SCAN_COOLDOWN_MS).toBe(500)
+    expect(SCAN_FPS).toBe(15)
     expect(SUCCESS_OVERLAY_MS).toBe(1200)
   })
 })
@@ -87,7 +90,7 @@ describe('ScanGate', () => {
   })
 })
 
-describe('front camera selection', () => {
+describe('camera selection', () => {
   it('classifies typical Android Chrome labels', () => {
     expect(classifyLabel('camera2 1, facing front')).toBe('front')
     expect(classifyLabel('camera2 0, facing back')).toBe('back')
@@ -122,6 +125,22 @@ describe('front camera selection', () => {
     expect(chooseFrontDevice([])).toBeNull()
   })
 
+  it('picks the BACK camera when asked, and never the front one instead', () => {
+    const devices = [
+      { deviceId: 'front', label: 'camera2 1, facing front', facingModes: ['user'] },
+      { deviceId: 'rear', label: 'camera2 0, facing back', facingModes: ['environment'] },
+    ]
+    expect(chooseDevice(devices, 'back')).toBe('rear')
+    expect(chooseDevice(devices, 'front')).toBe('front')
+    expect(chooseDevice([{ deviceId: 'rear', label: 'camera2 0, facing back' }], 'back')).toBe('rear')
+    // Only a front camera available: no back camera is invented.
+    expect(chooseDevice([{ deviceId: 'front', label: 'camera2 1, facing front' }], 'back')).toBeNull()
+    // Mislabelled device whose capabilities say "user" must be rejected for back.
+    expect(chooseDevice([{ deviceId: 'x', label: 'rear?', facingModes: ['user'] }], 'back')).toBeNull()
+    expect(facingModeFor('front')).toBe('user')
+    expect(facingModeFor('back')).toBe('environment')
+  })
+
   it('verifies the opened track and detects a rear camera', () => {
     expect(verifyRunningTrack('user', '')).toBe('front')
     expect(verifyRunningTrack('environment', 'facing front')).toBe('back')
@@ -140,7 +159,7 @@ describe('front camera selection', () => {
   })
 })
 
-describe('decode region', () => {
+describe('guide frame', () => {
   it('is a centred square sized to the shorter side, in both orientations', () => {
     expect(computeQrBox(960, 540)).toEqual({ width: 388, height: 388 })
     expect(computeQrBox(540, 960)).toEqual({ width: 388, height: 388 })

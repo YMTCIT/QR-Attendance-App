@@ -17,7 +17,7 @@ export default defineConfig({
         // Cache only the built app shell. Supabase API / Realtime / Edge
         // Function traffic is never cached: attendance must always be
         // confirmed live by the server (no offline attendance queueing).
-        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest,ttf}'],
         navigateFallback: '/index.html',
         // /templates/ holds downloadable import templates; never answer those
         // requests with the app shell.

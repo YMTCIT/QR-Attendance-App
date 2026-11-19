@@ -1,5 +1,6 @@
-import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react'
-import { computeQrBox, useFrontCamera } from '../hooks/useFrontCamera'
+import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type ReactNode, type Ref } from 'react'
+import { computeQrBox, useCamera } from '../hooks/useCamera'
+import type { CameraChoice } from '../lib/cameraSelection'
 import { SCAN_FPS } from '../config'
 
 export interface QRScannerHandle {
@@ -15,25 +16,33 @@ interface QRScannerProps {
   processing: boolean
   /** True when the scan gate would accept a code. */
   ready: boolean
-  onStatusChange?: (status: ReturnType<typeof useFrontCamera>['state']) => void
+  /** Which camera to use. Changing it switches cameras. */
+  facing: CameraChoice
+  onToggleFacing: () => void
+  /** Extra buttons shown beside the camera switch (e.g. the fullscreen toggle). */
+  actions?: ReactNode
+  onStatusChange?: (status: ReturnType<typeof useCamera>['state']) => void
   ref?: Ref<QRScannerHandle>
 }
 
 /**
  * The reader is laid out at a FIXED width and visually scaled with a CSS
- * transform to fit the screen. html5-qrcode maps its decode region using the
- * element's layout size, which transforms do not change — so rotating the
- * tablet only rescales the picture and never requires restarting the camera.
+ * transform to fit INSIDE the box ("contain": never cropped, never past the
+ * border). html5-qrcode maps its decode region using the element's layout
+ * size, which transforms do not change — so rotating the tablet only rescales
+ * the picture and never requires restarting the camera.
  */
 const RENDER_WIDTH = 960
-const ELEMENT_ID = 'front-camera-reader'
+const ELEMENT_ID = 'camera-reader'
 
-export function QRScanner({ onDecode, processing, ready, onStatusChange, ref }: QRScannerProps) {
-  const { state, start, stop } = useFrontCamera({ elementId: ELEMENT_ID, onDecode, fps: SCAN_FPS })
+export function QRScanner({ onDecode, processing, ready, facing, onToggleFacing, actions, onStatusChange, ref }: QRScannerProps) {
+  const { state, start, stop } = useCamera({ elementId: ELEMENT_ID, onDecode, fps: SCAN_FPS, facing })
   const viewportRef = useRef<HTMLDivElement>(null)
   const readerRef = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(1)
   const [frame, setFrame] = useState<number | null>(null)
+  /** The camera's real width / height, so the box takes the picture's shape. */
+  const [ratio, setRatio] = useState<number | null>(null)
 
   useImperativeHandle(ref, () => ({ stop, restart: start }), [stop, start])
 
@@ -41,34 +50,64 @@ export function QRScanner({ onDecode, processing, ready, onStatusChange, ref }: 
     onStatusChange?.(state)
   }, [state, onStatusChange])
 
-  // Fit the fixed-width reader into the available area (portrait or landscape).
+  /** Fit the fixed-width reader inside the box, using the camera's real aspect ratio. */
+  const fit = useCallback(() => {
+    const viewport = viewportRef.current
+    const reader = readerRef.current
+    if (!viewport || !reader) return
+    const video = reader.querySelector('video')
+    const known = !!video && video.videoWidth > 0 && video.videoHeight > 0
+    if (known) setRatio(Math.round((video.videoWidth / video.videoHeight) * 1000) / 1000)
+    const readerHeight = known
+      ? (RENDER_WIDTH * video.videoHeight) / video.videoWidth
+      : reader.offsetHeight || (RENDER_WIDTH * 9) / 16
+    // clientWidth/Height exclude the border, so the picture stays inside it.
+    const s = Math.min(viewport.clientWidth / RENDER_WIDTH, viewport.clientHeight / readerHeight)
+    setScale(Number.isFinite(s) && s > 0 ? s : 1)
+    if (video && video.clientWidth > 0 && video.clientHeight > 0) {
+      setFrame(computeQrBox(video.clientWidth, video.clientHeight).width)
+    }
+  }, [])
+
   useLayoutEffect(() => {
     const viewport = viewportRef.current
     const reader = readerRef.current
     if (!viewport || !reader) return
-    const update = () => {
-      const readerHeight = reader.offsetHeight || (RENDER_WIDTH * 9) / 16
-      const s = Math.min(viewport.clientWidth / RENDER_WIDTH, viewport.clientHeight / readerHeight)
-      setScale(Number.isFinite(s) && s > 0 ? s : 1)
-      const video = reader.querySelector('video')
-      if (video && video.clientWidth > 0 && video.clientHeight > 0) {
-        setFrame(computeQrBox(video.clientWidth, video.clientHeight).width)
-      }
-    }
-    update()
-    const ro = new ResizeObserver(update)
+    fit()
+    const ro = new ResizeObserver(fit)
     ro.observe(viewport)
     ro.observe(reader)
     return () => ro.disconnect()
-  }, [])
+  }, [fit])
 
+  // Re-fit once the camera reports its real size. Switching cameras passes
+  // through "starting", so this re-runs for the new camera's video element.
   const running = state.status === 'running'
+  useEffect(() => {
+    if (!running) return
+    const video = readerRef.current?.querySelector('video')
+    fit()
+    if (!video) return
+    video.addEventListener('loadedmetadata', fit)
+    video.addEventListener('resize', fit)
+    return () => {
+      video.removeEventListener('loadedmetadata', fit)
+      video.removeEventListener('resize', fit)
+    }
+  }, [running, fit])
+
+  const switching = state.status === 'starting' || state.status === 'idle'
+  const otherName = facing === 'front' ? 'back' : 'front'
 
   return (
     <div className="scanner-stage">
-      <div className="scanner-viewport" ref={viewportRef}>
+      <div className="scanner-viewport" ref={viewportRef} style={running && ratio ? { aspectRatio: String(ratio) } : undefined}>
         <div className="scanner-scaler" style={{ width: RENDER_WIDTH, transform: `translate(-50%, -50%) scale(${scale})` }}>
-          <div id={ELEMENT_ID} className="scanner-reader" ref={readerRef} />
+          <div
+            id={ELEMENT_ID}
+            className={`scanner-reader${facing === 'front' ? ' scanner-reader--mirror' : ''}`}
+            ref={readerRef}
+          />
           {running && frame !== null && (
             <div
               className={`scan-frame${processing ? ' scan-frame--busy' : ''}${ready ? ' scan-frame--ready' : ''}`}
@@ -91,7 +130,16 @@ export function QRScanner({ onDecode, processing, ready, onStatusChange, ref }: 
         <span className={`ready-indicator ${processing ? 'ready-indicator--busy' : running && ready ? 'ready-indicator--ok' : ''}`}>
           {processing ? 'Processing…' : running ? (ready ? 'Ready to Scan' : 'Please wait…') : 'Camera not ready'}
         </span>
-        <p className="scanner-prompt__hint">Hold your QR code up to the camera</p>
+        <button
+          type="button"
+          className="btn btn--ghost-light btn--small camera-switch"
+          onClick={onToggleFacing}
+          disabled={switching}
+          title={`Switch to the ${otherName} camera`}
+        >
+          <span aria-hidden="true">⇄</span> Use {otherName} camera
+        </button>
+        {actions}
       </div>
     </div>
   )
@@ -101,14 +149,16 @@ function CameraStatusPanel({
   state,
   onRetry,
 }: {
-  state: ReturnType<typeof useFrontCamera>['state']
+  state: ReturnType<typeof useCamera>['state']
   onRetry: () => void
 }) {
+  const cameraName = state.facing === 'front' ? 'Front' : 'Back'
+
   if (state.status === 'starting' || state.status === 'idle') {
     return (
       <div className="camera-panel">
         <span className="spinner spinner--light" aria-hidden="true" />
-        <p className="camera-panel__title">{state.message ?? 'Starting front camera…'}</p>
+        <p className="camera-panel__title">{state.message ?? `Starting ${cameraName.toLowerCase()} camera…`}</p>
         {state.status === 'idle' && (
           <button type="button" className="btn btn--gold btn--large" onClick={onRetry}>
             Start Camera
@@ -121,7 +171,7 @@ function CameraStatusPanel({
   if (state.status === 'denied') {
     return (
       <div className="camera-panel camera-panel--error" role="alert">
-        <p className="camera-panel__title">Front Camera Access Denied</p>
+        <p className="camera-panel__title">Camera Access Denied</p>
         <p>Please allow camera access and try again.</p>
         <ol className="camera-panel__steps">
           <li>Tap the camera / lock icon next to the address bar in Chrome.</li>
@@ -137,8 +187,8 @@ function CameraStatusPanel({
   }
 
   const titles: Record<string, string> = {
-    no_front_camera: 'Front Camera Not Available',
-    in_use: 'Front Camera Busy',
+    not_found: `${cameraName} Camera Not Available`,
+    in_use: `${cameraName} Camera Busy`,
     insecure: 'Secure Connection Required',
     unsupported: 'Camera Not Supported',
     error: 'Camera Error',
@@ -148,9 +198,9 @@ function CameraStatusPanel({
     <div className="camera-panel camera-panel--error" role="alert">
       <p className="camera-panel__title">{titles[state.status] ?? 'Camera Error'}</p>
       {state.message && <p>{state.message}</p>}
-      {state.status === 'no_front_camera' && (
+      {state.status === 'not_found' && (
         <p className="camera-panel__small">
-          This scanner only uses the tablet&apos;s front (selfie) camera. Make sure no other app is using it, then retry.
+          Make sure no other app is using the camera, then retry, or switch cameras with the button below.
         </p>
       )}
       {state.status !== 'insecure' && state.status !== 'unsupported' && (

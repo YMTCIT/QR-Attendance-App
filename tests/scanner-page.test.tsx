@@ -18,6 +18,7 @@ const camera = vi.hoisted(() => ({
   stops: 0,
   constructed: 0,
   lastSelector: null as unknown,
+  lastConfig: null as null | Record<string, unknown>,
   onSuccess: null as null | ((text: string) => void),
 }))
 
@@ -29,15 +30,17 @@ vi.mock('html5-qrcode', () => {
       this.id = id
       camera.constructed++
     }
-    async start(selector: unknown, _config: unknown, onSuccess: (t: string) => void) {
+    async start(selector: { facingMode?: { exact: string } }, config: Record<string, unknown>, onSuccess: (t: string) => void) {
       camera.starts++
       camera.lastSelector = selector
+      camera.lastConfig = config
       camera.onSuccess = onSuccess
+      const facingMode = selector.facingMode?.exact ?? 'user'
       const video = document.createElement('video')
       const track = {
-        label: 'camera2 1, facing front',
+        label: facingMode === 'user' ? 'camera2 1, facing front' : 'camera2 0, facing back',
         readyState: 'live',
-        getSettings: () => ({ facingMode: 'user' }),
+        getSettings: () => ({ facingMode }),
         addEventListener: () => undefined,
         removeEventListener: () => undefined,
       }
@@ -102,6 +105,8 @@ beforeEach(() => {
   camera.stops = 0
   camera.constructed = 0
   camera.onSuccess = null
+  camera.lastConfig = null
+  localStorage.clear()
   submitCheckIn.mockReset()
   fetchCheckInLog.mockReset()
   fetchCheckInLog.mockResolvedValue({ entries: [logEntry('Pedro Reyes', '2026-12-01T00:30:00Z')], total: 1 })
@@ -125,9 +130,13 @@ function decode(text: string) {
 }
 
 describe('ScannerPage (front camera, continuous session)', () => {
-  it('requests the FRONT camera with an exact facingMode constraint', async () => {
+  it('requests the FRONT camera with an exact facingMode constraint and decodes the whole frame', async () => {
     await renderScanner()
     expect(camera.lastSelector).toEqual({ facingMode: { exact: 'user' } })
+    // No centre-only decode region: a code is read anywhere in view.
+    expect(camera.lastConfig?.qrbox).toBeUndefined()
+    expect(camera.lastConfig?.fps).toBe(15)
+    expect(document.querySelector('.scanner-reader--mirror')).not.toBeNull()
     // The header pill updates one render after the camera reports "running".
     expect(await screen.findByText('Front camera')).toBeTruthy()
     expect(screen.getByText('Attendance Log')).toBeTruthy()
@@ -172,7 +181,7 @@ describe('ScannerPage (front camera, continuous session)', () => {
     decode('ABC001')
     expect(submitCheckIn).toHaveBeenCalledTimes(1)
 
-    // After the scan cooldown (800 ms) the next attendee is accepted on the SAME camera session.
+    // After the scan cooldown (500 ms) the next attendee is accepted on the SAME camera session.
     submitCheckIn.mockResolvedValueOnce({ status: 'already', name: 'Maria Santos', scanned_at: '2026-12-01T00:20:00Z' })
     await waitFor(
       () => {
@@ -187,7 +196,7 @@ describe('ScannerPage (front camera, continuous session)', () => {
 
     expect(camera.starts).toBe(startsBefore)
     expect(camera.stops).toBe(0)
-    expect(document.querySelector('#front-camera-reader video')).not.toBeNull()
+    expect(document.querySelector('#camera-reader video')).not.toBeNull()
   }, 15_000)
 
   it('keeps a just-confirmed check-in visible even if a slower, older log sync finishes afterwards', async () => {
@@ -208,6 +217,95 @@ describe('ScannerPage (front camera, continuous session)', () => {
     await act(async () => resolveStale({ entries: [logEntry('Pedro Reyes', '2026-12-01T00:30:00Z')], total: 1 }))
     expect(logRows()[0].textContent).toContain('Ana Lim')
     expect(logRows()[0].className).toContain('checkin-log__row--new')
+  })
+
+  it('switches to the BACK camera and back, remembering the choice', async () => {
+    await renderScanner()
+    expect(await screen.findByText('Front camera')).toBeTruthy()
+    const startsBefore = camera.starts
+
+    act(() => screen.getByRole('button', { name: /Use back camera/ }).click())
+    await waitFor(() => expect(camera.lastSelector).toEqual({ facingMode: { exact: 'environment' } }))
+    expect(await screen.findByText('Back camera')).toBeTruthy()
+    expect(camera.stops).toBe(1) // the front camera was closed first
+    expect(camera.starts).toBe(startsBefore + 1)
+    expect(document.querySelector('.scanner-reader--mirror')).toBeNull() // back camera is not mirrored
+    expect(localStorage.getItem('cit-qr:camera')).toBe('back')
+
+    // Scanning still works on the back camera.
+    submitCheckIn.mockResolvedValue({ status: 'ok', name: 'Back Cam Person', event_name: 'E', scanned_at: '2026-12-01T00:50:00Z' })
+    await screen.findByText('Ready to Scan')
+    decode('ABC777')
+    await waitFor(() => expect(logRows()[0]?.textContent).toContain('Back Cam Person'))
+
+    act(() => screen.getByRole('button', { name: /Use front camera/ }).click())
+    await waitFor(() => expect(camera.lastSelector).toEqual({ facingMode: { exact: 'user' } }))
+    expect(await screen.findByText('Front camera')).toBeTruthy()
+    expect(localStorage.getItem('cit-qr:camera')).toBe('front')
+  })
+
+  it('full screen hides the header, keeps the scanner and log, and requests browser fullscreen', async () => {
+    let fsElement: Element | null = null
+    const requestFullscreen = vi.fn(async () => {
+      fsElement = document.documentElement
+    })
+    const exitFullscreen = vi.fn(async () => {
+      fsElement = null
+    })
+    Object.defineProperty(document, 'fullscreenElement', { get: () => fsElement, configurable: true })
+    Object.defineProperty(document.documentElement, 'requestFullscreen', { value: requestFullscreen, configurable: true })
+    Object.defineProperty(document, 'exitFullscreen', { value: exitFullscreen, configurable: true })
+
+    try {
+      await renderScanner()
+      await screen.findByText('Pedro Reyes')
+      expect(screen.getByText('CIT QR Attendance')).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Log out' })).toBeTruthy()
+
+      await act(async () => screen.getByRole('button', { name: /^.?\s*Full screen$/ }).click())
+      expect(requestFullscreen).toHaveBeenCalledTimes(1)
+      // Header (title, sound, dashboard, log out) is gone…
+      expect(screen.queryByText('CIT QR Attendance')).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Log out' })).toBeNull()
+      expect(screen.queryByRole('button', { name: /Sound/ })).toBeNull()
+      // …the scanner, the log and the toggle remain, and the camera was not restarted.
+      expect(document.querySelector('#camera-reader video')).not.toBeNull()
+      expect(screen.getByText('Attendance Log')).toBeTruthy()
+      expect(screen.getByText('Pedro Reyes')).toBeTruthy()
+      expect(camera.stops).toBe(0)
+
+      // Toggle off again.
+      await act(async () => screen.getByRole('button', { name: /Exit full screen/ }).click())
+      expect(exitFullscreen).toHaveBeenCalledTimes(1)
+      expect(screen.getByText('CIT QR Attendance')).toBeTruthy()
+
+      // Leaving browser fullscreen another way (Esc / back) also restores the header.
+      await act(async () => screen.getByRole('button', { name: /^.?\s*Full screen$/ }).click())
+      expect(screen.queryByText('CIT QR Attendance')).toBeNull()
+      fsElement = null
+      act(() => {
+        document.dispatchEvent(new Event('fullscreenchange'))
+      })
+      expect(screen.getByText('CIT QR Attendance')).toBeTruthy()
+    } finally {
+      delete (document as unknown as Record<string, unknown>).fullscreenElement
+      delete (document.documentElement as unknown as Record<string, unknown>).requestFullscreen
+      delete (document as unknown as Record<string, unknown>).exitFullscreen
+    }
+  })
+
+  it('full screen still works when the browser refuses real fullscreen', async () => {
+    await renderScanner()
+    await act(async () => screen.getByRole('button', { name: /^.?\s*Full screen$/ }).click())
+    expect(screen.queryByText('CIT QR Attendance')).toBeNull()
+    expect(screen.getByRole('button', { name: /Exit full screen/ })).toBeTruthy()
+  })
+
+  it('starts on the back camera when this device chose it before', async () => {
+    localStorage.setItem('cit-qr:camera', 'back')
+    await renderScanner()
+    expect(camera.lastSelector).toEqual({ facingMode: { exact: 'environment' } })
+    expect(await screen.findByText('Back camera')).toBeTruthy()
   })
 
   it('never shows success for a connection error', async () => {

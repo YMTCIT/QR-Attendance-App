@@ -1,16 +1,27 @@
 /**
- * Front-camera identification helpers (pure functions, unit-tested).
+ * Camera identification helpers (pure functions, unit-tested).
+ *
+ * The scanner uses the FRONT camera by default and can be switched to the
+ * BACK camera. Whichever is chosen, we never silently use the other one.
  *
  * Browsers do not always honour facingMode, and labels are not standardised.
  * Android Chrome usually labels cameras "camera2 1, facing front" /
  * "camera2 0, facing back". We therefore combine, in order of trust:
- *   1. MediaTrackSettings.facingMode / InputDeviceInfo capabilities ("user")
+ *   1. MediaTrackSettings.facingMode / InputDeviceInfo capabilities
  *   2. the device label
- * and we NEVER pick a device that looks like a rear camera, nor an unknown
- * device when a rear camera might be the only match.
+ * and we NEVER pick a device that looks like the opposite camera, nor guess
+ * between unidentifiable devices.
  */
 
 export type CameraFacing = 'front' | 'back' | 'unknown'
+
+/** Which camera the scanner should use. */
+export type CameraChoice = 'front' | 'back'
+
+/** The getUserMedia facingMode value for a camera choice. */
+export function facingModeFor(choice: CameraChoice): 'user' | 'environment' {
+  return choice === 'front' ? 'user' : 'environment'
+}
 
 const FRONT_LABEL = /\b(front|user|selfie|facetime|facing front)\b|前置|前面/i
 const BACK_LABEL = /\b(back|rear|environment|world|facing back)\b|后置|後置|背面/i
@@ -39,17 +50,24 @@ export interface VideoDeviceCandidate {
 }
 
 /**
- * Picks the front camera's deviceId, or null if none can be identified.
- * Capability data wins over labels; rear-looking devices are excluded.
+ * Picks the deviceId of the wanted camera, or null if none can be identified.
+ * Capability data wins over labels; devices that look like the opposite
+ * camera are excluded.
  */
-export function chooseFrontDevice(devices: VideoDeviceCandidate[]): string | null {
-  const byCapability = devices.find((d) => classifyFacingMode(d.facingModes) === 'front')
+export function chooseDevice(devices: VideoDeviceCandidate[], want: CameraChoice): string | null {
+  const opposite: CameraFacing = want === 'front' ? 'back' : 'front'
+  const byCapability = devices.find((d) => classifyFacingMode(d.facingModes) === want)
   if (byCapability) return byCapability.deviceId
 
   const byLabel = devices.find(
-    (d) => classifyFacingMode(d.facingModes) !== 'back' && classifyLabel(d.label) === 'front',
+    (d) => classifyFacingMode(d.facingModes) !== opposite && classifyLabel(d.label) === want,
   )
   return byLabel ? byLabel.deviceId : null
+}
+
+/** Picks the front camera's deviceId (see chooseDevice). */
+export function chooseFrontDevice(devices: VideoDeviceCandidate[]): string | null {
+  return chooseDevice(devices, 'front')
 }
 
 export type TrackVerification = 'front' | 'back' | 'unverified'

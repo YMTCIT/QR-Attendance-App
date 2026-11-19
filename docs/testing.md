@@ -9,13 +9,13 @@ npm run check             # tsc + oxlint + vitest
 npm run check:functions   # deno check of the three Edge Functions
 ```
 
-Last recorded run: **105 tests passed across 6 files**; `tsc -b` and `oxlint --deny-warnings` also passed.
+Last recorded run: **110 tests passed across 6 files**; `tsc -b` and `oxlint --deny-warnings` also passed.
 
 | File | What it verifies |
 |---|---|
 | `tests/database.test.ts` | Runs **all migrations in PGlite** (real PostgreSQL in WebAssembly) with emulated Supabase roles. Single active event; atomic switch; check-in `ok` â†’ `already` with unchanged original `scanned_at`; UNIQUE constraint; wrong-event / invalid / empty / oversized codes; disabled and role-less callers refused; browser roles can't call `record_qr_check_in`; `scanned_at` immutable; RLS (scanner sees no registrants or attendance, anon sees nothing, no self-promotion); import upsert never touches attendance; Power Automate upsert is idempotent; stats; audited manual check-in and undo; event delete protection. |
 | `tests/check-in.test.ts` | The real Edge Function handler: 401 / 403 / 400 / 405 paths, minimal response fields, generic 500s. Malformed replies never become success. Overlay text for every outcome; Asia/Manila times. |
-| `tests/scanner.test.ts` | ScanGate: synchronous lock, slow server, 500 / 800 / 1000 ms cooldowns, overlay hold, per-code re-arm, retry after network error. Front-camera selection never picks a rear camera. |
+| `tests/scanner.test.ts` | ScanGate: synchronous lock, slow server, 500 / 800 / 1000 ms cooldowns, overlay hold, per-code re-arm, retry after network error. Camera selection picks the requested side and never the opposite one. |
 | `tests/scanner-page.test.tsx` | Renders the real ScannerPage with a fake camera: requests `facingMode: {exact: "user"}`, 8 rapid decodes produce **1** request, a success goes to the top of the Attendance Log highlighted (no overlay) and survives a slow, older log sync, other outcomes still show their overlay, camera started once and never restarted, connection errors never show success. |
 | `tests/import-registration.test.ts` | Real `.xlsx` (multi-sheet) and `.csv` parsing; mismatched, `.xls`, empty and corrupt files; formulas not executed; header auto-mapping; validation with row numbers; leading-zero warnings; 500-row batching and progress; partial-failure reporting. |
 | `tests/authorization.test.ts` | Route guards; Edge Function staff auth; admin-only scanner management; webhook secret, validation and idempotency; CORS restriction; CSV formula-injection protection. |
@@ -29,8 +29,12 @@ Last recorded run: **105 tests passed across 6 files**; `tsc -b` and `oxlint --d
 These need the Xiaomi Pad 7 and **have not been run yet**. Tick them during the first rehearsal:
 
 - [ ] Chrome asks for camera permission and the **front** camera opens (selfie view, header says "Front camera").
-- [ ] The rear camera is never used (cover the front lens: the preview goes dark rather than switching cameras).
-- [ ] Denying permission shows **Front Camera Access Denied**, and **Retry Camera** works after allowing.
+- [ ] The rear camera is never used unless selected (cover the front lens: the preview goes dark rather than switching cameras).
+- [ ] **⇄ Use back camera** switches to the back camera (not mirrored, header says "Back camera"), scanning works, and the choice survives a page reload. Switching back works too.
+- [ ] The preview stays inside the gold box border in landscape and portrait, on both cameras.
+- [ ] **⛶ Full screen** hides the header and Chrome's address bar; scanning and the log keep working; **✕ Exit full screen** and the Android back gesture both bring the header back.
+- [ ] A QR code is picked up quickly when held anywhere in the preview, not only inside the gold frame.
+- [ ] Denying permission shows **Camera Access Denied**, and **Retry Camera** works after allowing.
 - [ ] A QR on another phone (normal brightness, 25â€“50 cm) decodes reliably. Also try bright window light, a dim hall, and small and large phones.
 - [ ] After a check-in, the name appears at the top of the Attendance Log, highlighted, and the preview **continues without flicker or re-permission**.
 - [ ] Holding the same phone up continuously doesn't add repeated entries or trigger overlays.
