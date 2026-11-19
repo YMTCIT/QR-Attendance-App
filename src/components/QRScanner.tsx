@@ -113,7 +113,12 @@ export function QRScanner({
 
   return (
     <div className={`scanner-stage${logo ? ' scanner-stage--with-logo' : ''}`}>
-      {logo && <img className="scanner-logo" src={logo.src} alt={logo.alt} />}
+      {logo && (
+        // Fills the free space above the camera and centres the logo in it.
+        <div className="scanner-logo-slot">
+          <img className="scanner-logo" src={logo.src} alt={logo.alt} />
+        </div>
+      )}
       <div className="scanner-viewport" ref={viewportRef} style={running && ratio ? { aspectRatio: String(ratio) } : undefined}>
         <div className="scanner-scaler" style={{ width: RENDER_WIDTH, transform: `translate(-50%, -50%) scale(${scale})` }}>
           <div
@@ -154,6 +159,8 @@ export function QRScanner({
         </button>
         {actions}
       </div>
+      {/* Balances the logo slot so the camera itself stays vertically centred. */}
+      {logo && <div className="scanner-stage__spacer" aria-hidden="true" />}
     </div>
   )
 }

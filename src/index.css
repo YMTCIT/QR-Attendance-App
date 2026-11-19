@@ -567,12 +567,23 @@ select {
   --scanner-logo-h: 0px;
 }
 .scanner-stage--with-logo {
-  --scanner-logo-h: clamp(44px, 8vh, 80px);
+  --scanner-logo-h: clamp(48px, 9vh, 96px);
+  justify-content: flex-start;
+}
+/* The free space above the camera; the logo sits in its middle. The spacer
+   below takes an equal share, so the camera stays centred in the column. */
+.scanner-logo-slot {
+  flex: 1 1 0;
+  min-height: var(--scanner-logo-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.scanner-stage__spacer {
+  flex: 1 1 0;
 }
 .scanner-logo {
   display: block;
-  flex: none;
-  align-self: center;
   height: var(--scanner-logo-h);
   width: auto;
   max-width: 100%;
