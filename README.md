@@ -452,3 +452,5 @@ These **cannot** be verified without the tablet and **have not been run**. Pleas
 - **Power Automate *Resubmit*** generates a new code (see above).
 - **Fonts** come from Google Fonts. Without internet at first load, system fonts are used. The scanner itself needs internet anyway, because every check-in is confirmed online.
 - **`npm audit`** reports moderate advisories in `workbox-build` (via `vite-plugin-pwa`). It is a build-time-only dependency that is not shipped to browsers. The only automatic "fix" downgrades the PWA plugin.
+#   Q R - A t t e n d a n c e - A p p  
+ 
