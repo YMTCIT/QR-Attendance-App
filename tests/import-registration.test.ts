@@ -230,3 +230,29 @@ describe('importing registrations', () => {
     expect(outcome.failures).toEqual([{ fromRow: 6, toRow: 7, message: 'boom' }])
   })
 })
+
+describe('attendee import template (samples/attendee-import-template.xlsx)', () => {
+  it('auto-maps every column and imports nothing while still blank', async () => {
+    const { readFileSync } = await import('node:fs')
+    const bytes = readFileSync(new URL('../samples/attendee-import-template.xlsx', import.meta.url))
+    const wb = await readSpreadsheet(new File([new Uint8Array(bytes)], 'attendee-import-template.xlsx'))
+
+    expect(wb.sheets.map((s) => s.name)).toEqual(['Attendees', 'How to fill in'])
+    const sheet = wb.sheets[0]
+    const headers = sheet.rows[0].map((c) => c.text)
+    expect(headers).toEqual(['QR Code', 'Full Name', 'Student ID', 'Email', 'Department', 'Section', 'Event'])
+
+    const mapping = autoDetectMapping(headers)
+    expect(mapping).toEqual({ qr_code: 0, name: 1, id_number: 2, email: 3, department: 4, section: 5, event: 6 })
+
+    const result = validateImportRows({
+      dataRows: sheet.rows.slice(1),
+      firstRowNumber: 2,
+      mapping,
+      defaultEventId: 1,
+      events: [{ id: 1, name: 'Test event' }] as never,
+    })
+    expect(result.valid).toHaveLength(0)
+    expect(result.errors).toHaveLength(0)
+  })
+})

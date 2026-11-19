@@ -9,11 +9,11 @@ npm run check             # tsc + oxlint + vitest
 npm run check:functions   # deno check of the three Edge Functions
 ```
 
-Last recorded run: **97 tests passed across 6 files**; `tsc -b`, `oxlint --deny-warnings`, `vite build` and `deno check` also passed.
+Last recorded run: **98 tests passed across 6 files**; `tsc -b` and `oxlint --deny-warnings` also passed.
 
 | File | What it verifies |
 |---|---|
-| `tests/database.test.ts` | Runs **all four migrations in PGlite** (real PostgreSQL in WebAssembly) with emulated Supabase roles. Single active event; atomic switch; check-in `ok` → `already` with unchanged original `scanned_at`; UNIQUE constraint; wrong-event / invalid / empty / oversized codes; disabled and role-less callers refused; browser roles can't call `record_qr_check_in`; `scanned_at` immutable; RLS (scanner sees no registrants or attendance, anon sees nothing, no self-promotion); import upsert never touches attendance; Power Automate upsert is idempotent; stats; audited manual check-in and undo; event delete protection. |
+| `tests/database.test.ts` | Runs **all migrations in PGlite** (real PostgreSQL in WebAssembly) with emulated Supabase roles. Single active event; atomic switch; check-in `ok` → `already` with unchanged original `scanned_at`; UNIQUE constraint; wrong-event / invalid / empty / oversized codes; disabled and role-less callers refused; browser roles can't call `record_qr_check_in`; `scanned_at` immutable; RLS (scanner sees no registrants or attendance, anon sees nothing, no self-promotion); import upsert never touches attendance; Power Automate upsert is idempotent; stats; audited manual check-in and undo; event delete protection. |
 | `tests/check-in.test.ts` | The real Edge Function handler: 401 / 403 / 400 / 405 paths, minimal response fields, generic 500s. Malformed replies never become success. Overlay text for every outcome; Asia/Manila times. |
 | `tests/scanner.test.ts` | ScanGate: synchronous lock, slow server, 500 / 800 / 1000 ms cooldowns, overlay hold, per-code re-arm, retry after network error. Front-camera selection never picks a rear camera. |
 | `tests/scanner-page.test.tsx` | Renders the real ScannerPage with a fake camera: requests `facingMode: {exact: "user"}`, 8 rapid decodes produce **1** request, overlay shows the name and auto-dismisses, camera started once and never restarted, connection errors never show success. |

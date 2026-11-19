@@ -18,7 +18,8 @@
     "check": "npm run typecheck && npm run lint && npm run test",
     "check:functions": "npx -y deno@2 check supabase/functions/check-in/index.ts supabase/functions/register-attendee/index.ts supabase/functions/manage-scanner-users/index.ts",
     "icons": "node scripts/generate-icons.mjs",
-    "samples": "node scripts/generate-sample-xlsx.mjs"
+    "samples": "node scripts/generate-sample-xlsx.mjs",
+    "template": "node scripts/generate-import-template.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.1",

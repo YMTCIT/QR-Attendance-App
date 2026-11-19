@@ -88,16 +88,13 @@ npx supabase secrets set REGISTRATION_WEBHOOK_SECRET=<random-32+-characters>
 
 Keep it out of the frontend and out of Git.
 
-### 2.2 First administrator
+### 2.2 Add users
 
-1. Dashboard → **Authentication → Users → Add user → Create new user**. Enter the admin's email and a strong password, and tick **Auto Confirm User**.
-2. **SQL Editor** → run (replace the email):
-   ```sql
-   insert into public.app_user_roles (user_id, role)
-   select id, 'admin' from auth.users where email = 'admin@your-school.edu';
-   ```
+Dashboard → **Authentication → Users → Add user → Create new user**. Enter the email and a strong password, and tick **Auto Confirm User**.
 
-Roles can only be assigned this way (or by an admin in the app). Users can't promote themselves.
+**Every user you add here can sign in with full admin access.** No extra step is needed: migration `005_default_admin_role.sql` assigns the role automatically. Public sign-up is disabled, so only people you add can get in.
+
+Tablet accounts with **restricted, scan-only access** should be created inside the app instead (**Dashboard → Scanner Users**).
 
 ### 2.3 GitHub
 
@@ -182,6 +179,12 @@ Times are shown in Asia/Manila time.
 ---
 
 ## 4. Importing registrations
+
+**Start from the template:** [`samples/attendee-import-template.xlsx`](samples/attendee-import-template.xlsx). Fill in the **Attendees** sheet, one attendee per row. Only **QR Code** and **Full Name** are required. The **How to fill in** sheet explains each column and shows example rows. The ID and QR columns are pre-formatted as Text, so leading zeros are kept. (Regenerate it with `npm run template`.)
+
+| QR Code | Full Name | Student ID | Email | Department | Section | Event |
+|---|---|---|---|---|---|---|
+| *required* | *required* | optional | optional | optional | optional | optional: blank = the event you pick when importing |
 
 **Dashboard → Registrants → Import Excel**
 
